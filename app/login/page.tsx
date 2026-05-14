@@ -2,6 +2,8 @@
 
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { login } from '../API/loginApi'; 
+import { log } from 'node:console';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,30 +15,29 @@ export default function LoginPage() {
 
   useEffect(() => setMounted(true), []);
 
+  // redirect if already logged in
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) router.replace('/dashboard');
+  }, [router]);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || 'Invalid credentials.');
-        return;
-      }
+      const data = await login(email, password);
 
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
+
       router.push('/dashboard');
-    } catch {
-      setError('Could not reach the server. Check your connection.');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Could not reach the server. Check your connection.');
+      }
     } finally {
       setLoading(false);
     }

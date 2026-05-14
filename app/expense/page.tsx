@@ -2,10 +2,21 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { fetchExpenses, createExpense, deleteExpense } from '../API/expenseApi';
+import { fetchActiveVisits, fetchVisits } from '../API/visitApi'; 
 
 // ── Types ──
 interface User    { id: number; name: string; email: string; role: string; }
-interface Visit   { id: number; full_name: string; check_in: string; status: 'active' | 'completed'; }
+interface Visit {
+  id: number;
+  client_id: number;
+  client_name?: string;
+  full_name?: string;
+  reason: string;
+  status: 'active' | 'completed';
+  created_at?: string;
+  check_in?: string;
+}
 interface Expense {
   id: number;
   visit_id: number;
@@ -63,24 +74,18 @@ export default function ExpensesPage() {
     visit_id: '', category: '', amount: '', expense_date: new Date().toISOString().split('T')[0], description: '',
   });
 
-  const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+  
 
-  const headers = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-    return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-  };
-
-  const load = () => {
-    const h = headers();
-    setLoading(true);
-    Promise.allSettled([
-      fetch(`${API}/expenses`, { headers: h }).then(r => r.json()),
-      fetch(`${API}/visits`,   { headers: h }).then(r => r.json()),
-    ]).then(([e, v]) => {
-      if (e.status === 'fulfilled' && Array.isArray(e.value)) setExpenses(e.value);
-      if (v.status === 'fulfilled' && Array.isArray(v.value)) setVisits(v.value);
-    }).finally(() => setLoading(false));
-  };
+const load = () => {
+  setLoading(true);
+  Promise.allSettled([
+    fetchExpenses(),
+    fetchActiveVisits(),
+  ]).then(([e, v]) => {
+    if (e.status === 'fulfilled') setExpenses(e.value);
+    if (v.status === 'fulfilled') setVisits(v.value as Visit[]);
+  }).finally(() => setLoading(false));
+};
 
   useEffect(() => {
     setMounted(true);
@@ -115,33 +120,45 @@ export default function ExpensesPage() {
 
   const maxCat = byCat[0]?.total || 1;
 
-  // ── Submit ──
-  const handleSubmit = async () => {
-    if (!form.visit_id)  { setFormErr('Please select a visit.'); return; }
-    if (!form.category)  { setFormErr('Please select a category.'); return; }
-    if (!form.amount || isNaN(Number(form.amount)) || Number(form.amount) <= 0) { setFormErr('Enter a valid amount.'); return; }
-    setSubmitting(true); setFormErr('');
-    try {
-      const res = await fetch(`${API}/expenses`, {
-        method: 'POST', headers: headers(),
-        body: JSON.stringify({ visit_id: Number(form.visit_id), category: form.category, amount: Number(form.amount), expense_date: form.expense_date, description: form.description }),
-      });
-      if (!res.ok) { const e = await res.json(); setFormErr(e.message || 'Failed to add expense.'); return; }
-      setShowModal(false);
-      setForm({ visit_id: '', category: '', amount: '', expense_date: new Date().toISOString().split('T')[0], description: '' });
-      load();
-    } catch { setFormErr('Network error. Try again.'); }
-    finally { setSubmitting(false); }
-  };
+  //  Submit 
+ const handleSubmit = async () => {
+  if (!form.visit_id)  { setFormErr('Please select a visit.'); return; }
+  if (!form.category)  { setFormErr('Please select a category.'); return; }
+  if (!form.amount || isNaN(Number(form.amount)) || Number(form.amount) <= 0) { setFormErr('Enter a valid amount.'); return; }
 
-  const handleDelete = async (id: number) => {
-    setDeleteId(id);
-    try {
-      await fetch(`${API}/expenses/${id}`, { method: 'DELETE', headers: headers() });
-      load();
-    } finally { setDeleteId(null); }
-  };
+  setSubmitting(true);
+  setFormErr('');
 
+  try {
+    const data = await createExpense({
+      visit_id: Number(form.visit_id),
+      category: form.category,
+      amount: Number(form.amount),
+      expense_date: form.expense_date,
+      description: form.description || undefined,
+    });
+
+    setExpenses(prev => [data, ...prev]);
+    setShowModal(false);
+    setForm({ visit_id: '', category: '', amount: '', expense_date: new Date().toISOString().split('T')[0], description: '' });
+  } catch (err: any) {
+    setFormErr(err.message || 'Network error. Try again.');
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+ const handleDelete = async (id: number) => {
+  setDeleteId(id);
+  try {
+    await deleteExpense(id);
+    setExpenses(prev => prev.filter(e => e.id !== id)); 
+  } catch (err: any) {
+    alert(err.message || 'Failed to delete.');
+  } finally {
+    setDeleteId(null);
+  }
+};
   return (
     <>
       <style>{`
@@ -500,9 +517,17 @@ export default function ExpensesPage() {
                 <label className="db-label">Visit / Client *</label>
                 <select className="db-select" value={form.visit_id} onChange={e => setForm(f => ({ ...f, visit_id: e.target.value }))}>
                   <option value="">Select a visit…</option>
-                  {visits.map(v => (
-                    <option key={v.id} value={v.id}>{v.full_name} — {new Date(v.check_in).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })} ({v.status})</option>
-                  ))}
+                {visits.map(v => (
+                  <option key={v.id} value={v.id}>
+                    {v.client_name || v.full_name || `Visit #${v.id}`} — {' '}
+                    {v.created_at
+                      ? new Date(v.created_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })
+                      : v.check_in
+                      ? new Date(v.check_in).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })
+                      : '—'
+                    } ({v.status})
+                  </option>
+                ))}
                 </select>
               </div>
 

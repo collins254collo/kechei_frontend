@@ -2,11 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { fetchInvoices, generateInvoiceFromVisit, updateInvoice, createInvoice, CreateInvoicePayload } from '../API/invoiceApi';
+import { fetchClients } from '../API/clientApi';
+import { fetchVisits } from '../API/visitApi';
 
-// ── Types ──
+//  Types 
 interface User    { id: number; name: string; email: string; role: string; }
 interface Client  { id: number; full_name: string; phone: string; email?: string; }
-interface Visit   { id: number; client_id: number; full_name: string; check_in: string; status: 'active' | 'completed'; }
+interface Visit {
+  id: number;
+  client_id: number;
+  client_name?: string;
+  full_name?: string;
+  reason: string;
+  status: 'active' | 'completed';
+  created_at?: string;
+  check_in?: string;
+}
 interface Invoice {
   id: number;
   invoice_number: string;
@@ -57,30 +69,26 @@ export default function InvoicesPage() {
     client_id: '', visit_id: '', total_amount: '', issued_date: new Date().toISOString().split('T')[0], due_date: '', notes: '',
   });
 
-  const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
-  const headers = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-    return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-  };
-
   const load = () => {
-    const h = headers();
     setLoading(true);
     Promise.allSettled([
-      fetch(`${API}/invoices`, { headers: h }).then(r => r.json()),
-      fetch(`${API}/clients`,  { headers: h }).then(r => r.json()),
-      fetch(`${API}/visits`,   { headers: h }).then(r => r.json()),
+      fetchInvoices(),
+      fetchClients(),
+      fetchVisits(),
     ]).then(([inv, cl, vi]) => {
-      if (inv.status === 'fulfilled' && Array.isArray(inv.value)) setInvoices(inv.value);
-      if (cl.status  === 'fulfilled' && Array.isArray(cl.value))  setClients(cl.value);
-      if (vi.status  === 'fulfilled' && Array.isArray(vi.value))  setVisits(vi.value);
+      if (inv.status === 'fulfilled') setInvoices(inv.value);
+      else console.error('invoices failed:', inv.reason);
+      if (cl.status === 'fulfilled')  setClients(cl.value);
+      else console.error('clients failed:', cl.reason);
+      if (vi.status === 'fulfilled')  setVisits(vi.value as Visit[]);
+      else console.error('visits failed:', vi.reason);
     }).finally(() => setLoading(false));
   };
 
   useEffect(() => {
     setMounted(true);
     const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-    if (stored) setUser(JSON.parse(stored));
+    if (stored) { try { setUser(JSON.parse(stored)); } catch {} }
     load();
   }, []);
 
@@ -90,14 +98,14 @@ export default function InvoicesPage() {
   const filtered = invoices.filter(inv => {
     const matchStatus = statusFilter === 'all' || inv.status === statusFilter;
     const q = search.toLowerCase();
-    const matchSearch = !q || inv.full_name.toLowerCase().includes(q) || inv.invoice_number.toLowerCase().includes(q);
+    const matchSearch = !q || (inv.full_name || '').toLowerCase().includes(q) || (inv.invoice_number || '').toLowerCase().includes(q);
     return matchStatus && matchSearch;
   });
 
-  const totalRevenue   = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.total_amount), 0);
-  const outstanding    = invoices.filter(i => i.status !== 'paid').reduce((s, i) => s + Number(i.total_amount), 0);
-  const paidCount      = invoices.filter(i => i.status === 'paid').length;
-  const unpaidCount    = invoices.filter(i => i.status === 'unpaid').length;
+  const totalRevenue = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.total_amount), 0);
+  const outstanding  = invoices.filter(i => i.status !== 'paid').reduce((s, i) => s + Number(i.total_amount), 0);
+  const paidCount    = invoices.filter(i => i.status === 'paid').length;
+  const unpaidCount  = invoices.filter(i => i.status === 'unpaid').length;
 
   const statusColor = (s: string) => {
     if (s === 'paid')    return 'var(--badge-green-tx)';
@@ -110,44 +118,61 @@ export default function InvoicesPage() {
     return 'var(--badge-red-bg)';
   };
 
+  // filtered visits for selected client
+  const clientVisits = visits.filter(v => form.client_id && Number(v.client_id) === Number(form.client_id));
+
   // ── Create invoice ──
   const handleSubmit = async () => {
-    if (!form.client_id)  { setFormErr('Please select a client.'); return; }
+    if (!form.client_id) { setFormErr('Please select a client.'); return; }
     if (!form.total_amount || isNaN(Number(form.total_amount)) || Number(form.total_amount) <= 0) { setFormErr('Enter a valid amount.'); return; }
-    setSubmitting(true); setFormErr('');
-    try {
-      const body: any = {
-        client_id: Number(form.client_id),
-        total_amount: Number(form.total_amount),
-        issued_date: form.issued_date,
-        notes: form.notes,
-      };
-      if (form.visit_id)  body.visit_id  = Number(form.visit_id);
-      if (form.due_date)  body.due_date  = form.due_date;
 
-      const res = await fetch(`${API}/invoices`, { method: 'POST', headers: headers(), body: JSON.stringify(body) });
-      if (!res.ok) { const e = await res.json(); setFormErr(e.message || 'Failed to create invoice.'); return; }
+    setSubmitting(true);
+    setFormErr('');
+
+    try {
+      const payload: CreateInvoicePayload = {
+        client_id:    Number(form.client_id),
+        total_amount: Number(form.total_amount),
+        issued_date:  form.issued_date,
+        ...(form.visit_id && { visit_id: Number(form.visit_id) }),
+        ...(form.due_date && { due_date: form.due_date }),
+        ...(form.notes    && { notes:    form.notes }),
+      };
+
+      const data = form.visit_id
+        ? await generateInvoiceFromVisit({
+          visit_id: Number(form.visit_id),
+          ...(form.due_date && { due_date: form.due_date }),
+          ...(form.notes && { notes: form.notes }),
+          client_id: 0,
+          total_amount: 0,
+          issued_date: ''
+        })
+        : await createInvoice(payload);
+
+      setInvoices(prev => [data, ...prev]);
       setShowModal(false);
       setForm({ client_id: '', visit_id: '', total_amount: '', issued_date: new Date().toISOString().split('T')[0], due_date: '', notes: '' });
-      load();
-    } catch { setFormErr('Network error. Try again.'); }
-    finally { setSubmitting(false); }
+    } catch (err: any) {
+      setFormErr(err.message || 'Network error. Try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  // ── Mark as paid ──
+  //  Mark as paid 
   const markPaid = async (inv: Invoice) => {
     setMarkingId(inv.id);
     try {
-      await fetch(`${API}/invoices/${inv.id}`, {
-        method: 'PATCH', headers: headers(), body: JSON.stringify({ status: 'paid' }),
-      });
-      load();
-      if (detailInv?.id === inv.id) setDetailInv(prev => prev ? { ...prev, status: 'paid' } : null);
-    } finally { setMarkingId(null); }
+      const updated = await updateInvoice(inv.id, { status: 'paid' });
+      setInvoices(prev => prev.map(i => i.id === inv.id ? updated : i));
+      if (detailInv?.id === inv.id) setDetailInv(updated);
+    } catch (err: any) {
+      alert(err.message || 'Failed to update invoice.');
+    } finally {
+      setMarkingId(null);
+    }
   };
-
-  // filtered visits for selected client
-  const clientVisits = visits.filter(v => form.client_id && v.client_id === Number(form.client_id));
 
   return (
     <>
@@ -217,7 +242,6 @@ export default function InvoicesPage() {
         .db-stat-value { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.8px; line-height: 1; }
         .db-stat-sub { font-size: 10px; color: var(--text-3); margin-top: 6px; }
 
-        /* Toolbar */
         .db-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; animation: db-up 0.5s ease 0.1s both; }
         .db-search { flex: 1; min-width: 180px; max-width: 300px; display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; height: 36px; }
         .db-search svg { opacity: 0.35; flex-shrink: 0; }
@@ -234,7 +258,6 @@ export default function InvoicesPage() {
         .db-btn-primary:hover { background: var(--accent-h); }
         .db-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
-        /* Table card */
         .db-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; animation: db-up 0.5s ease 0.15s both; }
         .db-card-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
         .db-card-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -0.2px; }
@@ -263,7 +286,6 @@ export default function InvoicesPage() {
         @keyframes db-shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
         .db-skel { background: linear-gradient(90deg, var(--border) 25%, var(--surface-2) 50%, var(--border) 75%); background-size: 800px 100%; animation: db-shimmer 1.4s infinite; border-radius: 4px; height: 12px; }
 
-        /* Modal */
         .db-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 20px; animation: db-fade 0.2s ease; }
         @keyframes db-fade { from { opacity: 0; } to { opacity: 1; } }
         .db-modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 480px; box-shadow: 0 24px 48px rgba(0,0,0,0.15); overflow: hidden; animation: db-slide 0.25s cubic-bezier(0.16,1,0.3,1); }
@@ -281,17 +303,18 @@ export default function InvoicesPage() {
         .db-select, .db-input, .db-textarea { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; outline: none; width: 100%; transition: border-color 0.15s; }
         .db-select:focus, .db-input:focus, .db-textarea:focus { border-color: var(--accent); }
         .db-textarea { resize: vertical; min-height: 72px; }
-        .db-err { font-size: 11px; color: var(--badge-red-tx); }
+        .db-err { font-size: 11px; color: var(--badge-red-tx); background: var(--badge-red-bg); padding: 8px 12px; border-radius: 6px; }
         .db-btn-secondary { height: 36px; padding: 0 16px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.04em; background: none; border: 1px solid var(--border); color: var(--text-2); cursor: pointer; transition: all 0.15s; }
         .db-btn-secondary:hover { color: var(--text); border-color: var(--text-2); }
 
-        /* Invoice detail panel */
         .db-detail-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
         .db-detail-row:last-child { border-bottom: none; }
         .db-detail-key { color: var(--text-2); font-size: 11px; }
         .db-detail-val { color: var(--text); font-weight: 500; text-align: right; }
 
         .db-inv-number { font-family: 'DM Mono', monospace; font-size: 11px; padding: 4px 10px; border-radius: 5px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2); letter-spacing: 0.04em; }
+
+        .db-hint { font-size: 10px; color: var(--text-3); padding: 8px 12px; background: var(--surface-2); border-radius: 6px; border: 1px solid var(--border); }
 
         .db-side-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 35; }
 
@@ -356,10 +379,10 @@ export default function InvoicesPage() {
             {/* Stat cards */}
             <div className="db-stats">
               {[
-                { label: 'Revenue collected', value: loading ? '—' : fmt(totalRevenue),       sub: `${paidCount} paid invoice${paidCount !== 1 ? 's' : ''}` },
-                { label: 'Outstanding',        value: loading ? '—' : fmt(outstanding),        sub: `${unpaidCount} unpaid` },
+                { label: 'Revenue collected', value: loading ? '—' : fmt(totalRevenue),             sub: `${paidCount} paid invoice${paidCount !== 1 ? 's' : ''}` },
+                { label: 'Outstanding',        value: loading ? '—' : fmt(outstanding),              sub: `${unpaidCount} unpaid` },
                 { label: 'Total invoiced',     value: loading ? '—' : fmt(totalRevenue + outstanding), sub: 'All time' },
-                { label: 'Total invoices',     value: loading ? '—' : String(invoices.length), sub: 'All records' },
+                { label: 'Total invoices',     value: loading ? '—' : String(invoices.length),       sub: 'All records' },
               ].map(({ label, value, sub }) => (
                 <div key={label} className="db-stat" style={{ opacity: mounted ? 1 : 0 }}>
                   <div className="db-stat-label">{label}</div>
@@ -376,15 +399,11 @@ export default function InvoicesPage() {
                 <input type="text" placeholder="Search by client or invoice #…" value={search} onChange={e => setSearch(e.target.value)} />
                 {search && <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 0 }}>✕</button>}
               </div>
-
               <div className="db-filters">
                 {STATUS_FILTERS.map(s => (
-                  <button key={s} className={`db-filter-btn ${statusFilter === s ? `active-${s}` : ''}`} onClick={() => setStatusFilter(s)}>
-                    {s}
-                  </button>
+                  <button key={s} className={`db-filter-btn ${statusFilter === s ? `active-${s}` : ''}`} onClick={() => setStatusFilter(s)}>{s}</button>
                 ))}
               </div>
-
               <button className="db-btn-primary" onClick={() => setShowModal(true)}>
                 <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
                 <span>New invoice</span>
@@ -466,32 +485,68 @@ export default function InvoicesPage() {
               </button>
             </div>
             <div className="db-modal-body">
+
+              {/* Client */}
               <div className="db-field">
                 <label className="db-label">Client *</label>
-                <select className="db-select" value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value, visit_id: '' }))}>
+                <select
+                  className="db-select"
+                  value={form.client_id}
+                  onChange={e => setForm(f => ({ ...f, client_id: e.target.value, visit_id: '' }))}
+                >
                   <option value="">Select a client…</option>
-                  {clients.map(c => <option key={c.id} value={c.id}>{c.full_name} — {c.phone}</option>)}
+                  {clients.map(c => (
+                    <option key={c.id} value={c.id}>{c.full_name} — {c.phone}</option>
+                  ))}
                 </select>
               </div>
 
-              {form.client_id && clientVisits.length > 0 && (
+              {/* Linked visit — only show when client selected and has visits */}
+              {form.client_id && (
                 <div className="db-field">
                   <label className="db-label">Linked visit (optional)</label>
-                  <select className="db-select" value={form.visit_id} onChange={e => setForm(f => ({ ...f, visit_id: e.target.value }))}>
-                    <option value="">None</option>
-                    {clientVisits.map(v => (
-                      <option key={v.id} value={v.id}>
-                        {new Date(v.check_in).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })} — {v.status}
-                      </option>
-                    ))}
-                  </select>
+                  {clientVisits.length === 0 ? (
+                    <div className="db-hint">No visits found for this client.</div>
+                  ) : (
+                    <select
+                      className="db-select"
+                      value={form.visit_id}
+                      onChange={e => setForm(f => ({ ...f, visit_id: e.target.value }))}
+                    >
+                      <option value="">None — manual invoice</option>
+                      {clientVisits.map(v => (
+                        <option key={v.id} value={v.id}>
+                          {v.created_at
+                            ? new Date(v.created_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })
+                            : v.check_in
+                            ? new Date(v.check_in).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })
+                            : `Visit #${v.id}`
+                          } — {v.status}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               )}
 
-              <div className="db-field">
-                <label className="db-label">Total amount (KES) *</label>
-                <input className="db-input" type="number" min="0" step="0.01" placeholder="0.00" value={form.total_amount} onChange={e => setForm(f => ({ ...f, total_amount: e.target.value }))} />
-              </div>
+              {/* Amount — hidden when generating from visit (backend calculates it) */}
+              {!form.visit_id && (
+                <div className="db-field">
+                  <label className="db-label">Total amount (KES) *</label>
+                  <input
+                    className="db-input"
+                    type="number" min="0" step="0.01" placeholder="0.00"
+                    value={form.total_amount}
+                    onChange={e => setForm(f => ({ ...f, total_amount: e.target.value }))}
+                  />
+                </div>
+              )}
+
+              {form.visit_id && (
+                <div className="db-hint">
+                  Amount will be auto-calculated from visit expenses.
+                </div>
+              )}
 
               <div className="db-field-row">
                 <div className="db-field">
@@ -514,7 +569,7 @@ export default function InvoicesPage() {
             <div className="db-modal-foot">
               <button className="db-btn-secondary" onClick={() => { setShowModal(false); setFormErr(''); }}>Cancel</button>
               <button className="db-btn-primary" onClick={handleSubmit} disabled={submitting} style={{ margin: 0 }}>
-                {submitting ? 'Creating…' : 'Create invoice'}
+                {submitting ? 'Creating…' : form.visit_id ? 'Generate invoice' : 'Create invoice'}
               </button>
             </div>
           </div>
@@ -535,7 +590,6 @@ export default function InvoicesPage() {
               </button>
             </div>
             <div className="db-modal-body">
-              {/* Status banner */}
               <div style={{ padding: '12px 16px', borderRadius: '8px', background: statusBg(detailInv.status), display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span className="db-badge" style={{ color: statusColor(detailInv.status), background: 'transparent', padding: 0 }}>
                   {detailInv.status}
@@ -546,7 +600,6 @@ export default function InvoicesPage() {
                   </button>
                 )}
               </div>
-
               <div>
                 <div className="db-detail-row">
                   <span className="db-detail-key">Client</span>

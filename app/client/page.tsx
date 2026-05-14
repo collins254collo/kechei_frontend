@@ -2,6 +2,7 @@
 
 import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { fetchClients, searchClients, fetchClientById, createClient, updateClient, deleteClient } from '../API/clientApi';
 
 interface Client {
   id: number;
@@ -36,16 +37,12 @@ export default function ClientsPage() {
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState('');
 
-  const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
-  const headers = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-    return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-  };
-
+  
+  // Fetch All Clients on mount
   useEffect(() => {
-    fetch(`${API}/clients`, { headers: headers() })
-      .then(r => r.json())
-      .then(d => { if (Array.isArray(d)) { setClients(d); setFiltered(d); } })
+    fetchClients()
+      .then(d => { setClients(d); setFiltered(d); })
+      .catch(() => {}) 
       .finally(() => setLoading(false));
   }, []);
 
@@ -60,31 +57,35 @@ export default function ClientsPage() {
     );
   }, [search, clients]);
 
-  const handleCreate = async (e: FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSaving(true);
-    try {
-      const res = await fetch(`${API}/clients`, {
-        method: 'POST',
-        headers: headers(),
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error || 'Failed to create client'); return; }
-      setClients(prev => [data, ...prev]);
-      setModal(null);
-      setForm(EMPTY_FORM);
-    } catch { setError('Could not reach server.'); }
-    finally { setSaving(false); }
-  };
+  // Create new client
+ const handleCreate = async (e: FormEvent) => {
+  e.preventDefault();
+  setError('');
+  setSaving(true);
+  try {
+    const data = await createClient(form);
+    setClients(prev => [data, ...prev]);
+    setModal(null);
+    setForm(EMPTY_FORM);
+  } catch (err: any) {
+    setError(err.message || 'Could not reach server.');
+  } finally {
+    setSaving(false);
+  }
+};
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Delete this client? This cannot be undone.')) return;
-    await fetch(`${API}/clients/${id}`, { method: 'DELETE', headers: headers() });
+// Delete client
+const handleDelete = async (id: number) => {
+  if (!confirm('Delete this client? This cannot be undone.')) return;
+  try {
+    await deleteClient(id);
     setClients(prev => prev.filter(c => c.id !== id));
     if (modal === 'view') setModal(null);
-  };
+  } catch (err: any) {
+    alert(err.message || 'Failed to delete client.');
+  }
+};
+
 
   const openView = (c: Client) => { setSelected(c); setModal('view'); };
   const openCreate = () => { setForm(EMPTY_FORM); setError(''); setModal('create'); };
