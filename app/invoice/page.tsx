@@ -94,7 +94,7 @@ export default function InvoicesPage() {
 
   const logout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); router.push('/login'); };
 
-  // ── Derived ──
+  //  Derived 
   const filtered = invoices.filter(inv => {
     const matchStatus = statusFilter === 'all' || inv.status === statusFilter;
     const q = search.toLowerCase();
@@ -121,7 +121,7 @@ export default function InvoicesPage() {
   // filtered visits for selected client
   const clientVisits = visits.filter(v => form.client_id && Number(v.client_id) === Number(form.client_id));
 
-  // ── Create invoice ──
+  //  Create invoice 
   const handleSubmit = async () => {
     if (!form.client_id) { setFormErr('Please select a client.'); return; }
     if (!form.total_amount || isNaN(Number(form.total_amount)) || Number(form.total_amount) <= 0) { setFormErr('Enter a valid amount.'); return; }

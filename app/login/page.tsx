@@ -3,7 +3,6 @@
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { login } from '../API/loginApi'; 
-import { log } from 'node:console';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,16 +20,14 @@ export default function LoginPage() {
     if (token) router.replace('/dashboard');
   }, [router]);
 
-  const handleSubmit = async (e: FormEvent) => {
+const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
       const data = await login(email, password);
-
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
-
       router.push('/dashboard');
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -42,6 +39,7 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
 
   return (
     <>

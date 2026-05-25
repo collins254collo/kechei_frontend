@@ -41,7 +41,8 @@ function duration(start: string, end?: string) {
   if (mins < 60) return `${mins}m`;
   const h = Math.floor(mins / 60);
   const m = mins % 60;
-  return m ? `${h}h ${m}m` : `${h}h`;
+  const d = Math.floor(h / 24 );
+  return m ? ` ${d}days  ${m}m` : `${h}h`;
 }
 
 const FILTERS = ['all', 'active', 'completed'] as const;

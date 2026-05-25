@@ -49,11 +49,21 @@ export interface UpdateInvoicePayload {
 //  Helper 
 
 async function handleResponse<T>(res: Response): Promise<T> {
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || data.message || `Request failed: ${res.status}`);
+  let data: any;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error(`Server error (${res.status}): Response was not valid JSON. Check your API URL.`);
+  }
+
+  if (!res.ok) {
+    const message = data?.error || data?.message || `Request failed with status ${res.status}`;
+    console.error(`[API ${res.status}] ${res.url}:`, data);
+    throw new Error(message);
+  }
+
   return data as T;
 }
-
 
 /** GET /invoices — fetch all invoices */
 export async function fetchInvoices(): Promise<Invoice[]> {

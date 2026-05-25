@@ -1,10 +1,13 @@
-// lib/api/authApi.ts
-
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
+
+const getToken = (): string | null => {
+  if (typeof window === 'undefined') return null; 
+  return localStorage.getItem('token');
+};
 
 const authHeaders = () => ({
   'Content-Type': 'application/json',
-  Authorization: `Bearer ${localStorage.getItem('token')}`,
+  Authorization: `Bearer ${getToken()}`,
 });
 
 export async function login(email: string, password: string) {
@@ -20,7 +23,11 @@ export async function login(email: string, password: string) {
     throw new Error(data.error || data.message || 'Invalid credentials.');
   }
 
-  return data; 
+  
+  if (data.token) localStorage.setItem('token', data.token);
+  if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
+
+  return data;
 }
 
 export async function getMe() {
@@ -28,7 +35,13 @@ export async function getMe() {
     method: 'GET',
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error('Session expired. Please login again.');
+
+  if (res.status === 401) {
+    logout(); 
+    throw new Error('Session expired. Please login again.');
+  }
+
+  if (!res.ok) throw new Error('Failed to fetch session.');
   return res.json();
 }
 
@@ -67,6 +80,7 @@ export async function deleteUser(id: number) {
 }
 
 export function logout() {
+  if (typeof window === 'undefined') return; 
   localStorage.removeItem('token');
   localStorage.removeItem('user');
   window.location.href = '/login';
