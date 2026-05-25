@@ -18,6 +18,7 @@ export interface Visit {
   full_name?: string;  
   reason: string;
   notes?: string;
+   room_number?: string;
   status: 'active' | 'completed';
   created_at: string;
   completed_at?: string;
@@ -28,6 +29,7 @@ export interface CreateVisitPayload {
   client_id: number;
   reason: string;
   notes?: string;
+  room_number?: string;
 }
 
 export interface UpdateVisitPayload {

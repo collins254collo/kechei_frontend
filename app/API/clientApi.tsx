@@ -1,6 +1,7 @@
 import { Invoice } from "./invoiceApi";
 import { Visit } from "./visitApi";
 import { Payment } from "./paymentApi";
+import { Expense } from "./expenseApi";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -46,10 +47,12 @@ export interface ClientProfile {
     total_invoiced: number;
     total_paid:     number;
     balance:        number;
+    total_expenses:  number;   
   };
   visits:   Visit[];
   invoices: Invoice[];
   payments: Payment[];
+   expenses: Expense[]; 
 }
 
 async function handleResponse<T>(res: Response): Promise<T> {
@@ -57,7 +60,6 @@ async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) throw new Error(data.error || data.message || `Request failed: ${res.status}`);
   return data as T;
 }
-
 
 /** GET /clients — fetch all clients */
 export async function fetchClients(): Promise<Client[]> {

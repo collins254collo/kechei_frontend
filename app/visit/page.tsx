@@ -9,6 +9,7 @@ import { fetchClients } from '../API/clientApi';
 interface User { id: number; name: string; email: string; role: string; }
 interface Client { id: number; full_name: string; phone: string; }
 interface Visit {
+  room_number: string;
   id: number;
   client_id: number;
   client_name?: string;
@@ -62,9 +63,9 @@ export default function VisitsPage() {
   const [mounted, setMounted]       = useState(false);
 
   // Form state — includes reason (required by backend)
-  const [form, setForm]             = useState({ client_id: '', reason: '', notes: '' });
   const [submitting, setSubmitting] = useState(false);
   const [formErr, setFormErr]       = useState('');
+  const [form, setForm] = useState({ client_id: '', reason: '', notes: '', room_number: '' });
 
   // ── Load visits + clients ──
   const load = () => {
@@ -130,14 +131,15 @@ export default function VisitsPage() {
     setSubmitting(true);
     setFormErr('');
     try {
-      const data = await createVisit({
-        client_id: Number(form.client_id),
-        reason: form.reason,
-        notes: form.notes || undefined,
+     const data = await createVisit({
+        client_id:   Number(form.client_id),
+        reason:      form.reason,
+        room_number: form.room_number || undefined,
+        notes:       form.notes || undefined,
       });
       setVisits(prev => [data as Visit, ...prev]);
       setShowModal(false);
-      setForm({ client_id: '', reason: '', notes: '' });
+      setForm({ client_id: '', reason: '', notes: '', room_number: '' });
     } catch (err: any) {
       setFormErr(err.message || 'Network error. Try again.');
     } finally {
@@ -563,6 +565,7 @@ export default function VisitsPage() {
                     <tr>
                       <th className="db-th">Client</th>
                       <th className="db-th">Reason</th>
+                      <th className="db-th">Room</th>
                       <th className="db-th">Started</th>
                       <th className="db-th">Completed</th>
                       <th className="db-th">Duration</th>
@@ -579,6 +582,7 @@ export default function VisitsPage() {
                         <td className="db-td db-td-muted" style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {v.reason}
                         </td>
+                        <td className="db-td db-td-muted">{v.room_number || '—'}</td>
                         <td className="db-td db-td-mono">{fmtDate(v.created_at)}</td>
                         <td className="db-td db-td-mono">
                           {v.completed_at ? fmtDate(v.completed_at) : <span style={{ color: 'var(--text-3)' }}>—</span>}
@@ -656,7 +660,15 @@ export default function VisitsPage() {
                   onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
                 />
               </div>
-
+              <div className="db-field">
+                <label className="db-label">Room number *</label>
+                <input
+                  className="db-input"
+                  placeholder="e.g. Tokyo, Las Vegaz, Cabin 4…"
+                  value={form.room_number}
+                  onChange={e => setForm(f => ({ ...f, room_number: e.target.value }))}
+                />
+              </div>
               {/* Notes */}
               <div className="db-field">
                 <label className="db-label">Notes (optional)</label>
