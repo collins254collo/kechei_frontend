@@ -1,3 +1,7 @@
+import { Invoice } from "./invoiceApi";
+import { Visit } from "./visitApi";
+import { Payment } from "./paymentApi";
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 const getHeaders = (): Record<string, string> => {
@@ -13,6 +17,7 @@ export interface Client {
   id: number;
   full_name: string;
   phone: string;
+  email: string;        
   nationality: string;
   notes?: string;
   created_at: string;
@@ -21,6 +26,7 @@ export interface Client {
 export interface CreateClientPayload {
   full_name: string;
   phone: string;
+  email: string;
   nationality?: string;
   notes?: string;
 }
@@ -28,10 +34,23 @@ export interface CreateClientPayload {
 export interface UpdateClientPayload {
   full_name?: string;
   phone?: string;
+  email?: string;       
   nationality?: string;
   notes?: string;
 }
 
+export interface ClientProfile {
+  client: Client;
+  stats: {
+    total_visits:   number;
+    total_invoiced: number;
+    total_paid:     number;
+    balance:        number;
+  };
+  visits:   Visit[];
+  invoices: Invoice[];
+  payments: Payment[];
+}
 
 async function handleResponse<T>(res: Response): Promise<T> {
   const data = await res.json();
@@ -97,4 +116,14 @@ export async function deleteClient(id: number): Promise<void> {
     const data = await res.json();
     throw new Error(data.error || data.message || 'Failed to delete client.');
   }
+
+}
+
+/** GET /clients/:id/profile — fetch client profile with stats, visits, invoices, payments */
+export async function fetchClientProfile(id: number): Promise<ClientProfile> {
+  const res = await fetch(`${BASE_URL}/clients/${id}/profile`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+  return handleResponse<ClientProfile>(res);
 }

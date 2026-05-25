@@ -94,7 +94,7 @@ export async function createInvoice(payload: CreateInvoicePayload): Promise<Invo
 }
 
 /** POST /invoices/generate — generate invoice from a visit */
-export async function generateInvoiceFromVisit(payload: CreateInvoicePayload): Promise<Invoice> {
+export async function generateInvoiceFromVisit(payload: GenerateInvoicePayload): Promise<Invoice> {
   const res = await fetch(`${BASE_URL}/invoices/generate`, {
     method: 'POST',
     headers: getHeaders(),

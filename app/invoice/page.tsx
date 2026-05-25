@@ -123,42 +123,48 @@ export default function InvoicesPage() {
 
   //  Create invoice 
   const handleSubmit = async () => {
-    if (!form.client_id) { setFormErr('Please select a client.'); return; }
-    if (!form.total_amount || isNaN(Number(form.total_amount)) || Number(form.total_amount) <= 0) { setFormErr('Enter a valid amount.'); return; }
+  if (!form.client_id) { setFormErr('Please select a client.'); return; }
+  if (!form.visit_id && (!form.total_amount || isNaN(Number(form.total_amount)) || Number(form.total_amount) <= 0)) {
+    setFormErr('Enter a valid amount.');
+    return;
+  }
 
-    setSubmitting(true);
-    setFormErr('');
+  setSubmitting(true);
+  setFormErr('');
 
-    try {
-      const payload: CreateInvoicePayload = {
+  try {
+    let data: Invoice;
+
+    if (form.visit_id) {
+      // Generate from visit — only send what the endpoint needs
+      data = await generateInvoiceFromVisit({
+        visit_id: Number(form.visit_id),
+        ...(form.due_date && { due_date: form.due_date }),
+        ...(form.notes && { notes: form.notes }),
+        client_id: 0,
+        total_amount: 0,
+        issued_date: ''
+      });
+    } else {
+      // Manual invoice
+      data = await createInvoice({
         client_id:    Number(form.client_id),
         total_amount: Number(form.total_amount),
         issued_date:  form.issued_date,
-        ...(form.visit_id && { visit_id: Number(form.visit_id) }),
         ...(form.due_date && { due_date: form.due_date }),
         ...(form.notes    && { notes:    form.notes }),
-      };
-
-      const data = form.visit_id
-        ? await generateInvoiceFromVisit({
-          visit_id: Number(form.visit_id),
-          ...(form.due_date && { due_date: form.due_date }),
-          ...(form.notes && { notes: form.notes }),
-          client_id: 0,
-          total_amount: 0,
-          issued_date: ''
-        })
-        : await createInvoice(payload);
-
-      setInvoices(prev => [data, ...prev]);
-      setShowModal(false);
-      setForm({ client_id: '', visit_id: '', total_amount: '', issued_date: new Date().toISOString().split('T')[0], due_date: '', notes: '' });
-    } catch (err: any) {
-      setFormErr(err.message || 'Network error. Try again.');
-    } finally {
-      setSubmitting(false);
+      });
     }
-  };
+
+    setInvoices(prev => [data, ...prev]);
+    setShowModal(false);
+    setForm({ client_id: '', visit_id: '', total_amount: '', issued_date: new Date().toISOString().split('T')[0], due_date: '', notes: '' });
+  } catch (err: any) {
+    setFormErr(err.message || 'Network error. Try again.');
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   //  Mark as paid 
   const markPaid = async (inv: Invoice) => {

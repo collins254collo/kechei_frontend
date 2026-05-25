@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { fetchPayments, createPayment, deletePayment } from '../API/paymentApi';
+import { fetchInvoices } from '../API/invoiceApi';
 
 // ── Types ──
 interface User    { id: number; name: string; email: string; role: string; }
@@ -80,21 +82,19 @@ export default function PaymentsPage() {
     invoice_id: '', amount_paid: '', method: '', payment_date: new Date().toISOString().split('T')[0], reference: '', notes: '',
   });
 
-  const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
   const headers = () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
     return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
   };
 
   const load = () => {
-    const h = headers();
     setLoading(true);
     Promise.allSettled([
-      fetch(`${API}/payments`, { headers: h }).then(r => r.json()),
-      fetch(`${API}/invoices`, { headers: h }).then(r => r.json()),
+      fetchPayments(),
+      fetchInvoices(),
     ]).then(([p, i]) => {
-      if (p.status === 'fulfilled' && Array.isArray(p.value)) setPayments(p.value);
-      if (i.status === 'fulfilled' && Array.isArray(i.value)) setInvoices(i.value);
+      if (p.status === 'fulfilled') setPayments(p.value);
+      if (i.status === 'fulfilled') setInvoices(i.value);
     }).finally(() => setLoading(false));
   };
 
@@ -153,35 +153,40 @@ export default function PaymentsPage() {
   const handleSubmit = async () => {
     if (!form.invoice_id) { setFormErr('Please select an invoice.'); return; }
     if (!form.method)     { setFormErr('Please select a payment method.'); return; }
-    if (!form.amount_paid || isNaN(Number(form.amount_paid)) || Number(form.amount_paid) <= 0) { setFormErr('Enter a valid amount.'); return; }
+    if (!form.amount_paid || isNaN(Number(form.amount_paid)) || Number(form.amount_paid) <= 0) {
+      setFormErr('Enter a valid amount.'); return;
+    }
     setSubmitting(true); setFormErr('');
     try {
-      const res = await fetch(`${API}/payments`, {
-        method: 'POST', headers: headers(),
-        body: JSON.stringify({
-          invoice_id: Number(form.invoice_id),
-          amount_paid: Number(form.amount_paid),
-          method: form.method,
-          payment_date: form.payment_date,
-          reference: form.reference || undefined,
-          notes: form.notes || undefined,
-        }),
+      await createPayment({
+        invoice_id:   Number(form.invoice_id),
+        amount_paid:  Number(form.amount_paid),
+        method:       form.method,
+        payment_date: form.payment_date,
+        ...(form.reference && { reference: form.reference }),
+        ...(form.notes     && { notes:     form.notes }),
       });
-      if (!res.ok) { const e = await res.json(); setFormErr(e.message || 'Failed to record payment.'); return; }
       setShowModal(false);
       setForm({ invoice_id: '', amount_paid: '', method: '', payment_date: new Date().toISOString().split('T')[0], reference: '', notes: '' });
       load();
-    } catch { setFormErr('Network error. Try again.'); }
-    finally { setSubmitting(false); }
+    } catch (err: any) {
+      setFormErr(err.message || 'Network error. Try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleDelete = async (id: number) => {
+ const handleDelete = async (id: number) => {
     setDeleteId(id);
     try {
-      await fetch(`${API}/payments/${id}`, { method: 'DELETE', headers: headers() });
+      await deletePayment(id);
       load();
-    } finally { setDeleteId(null); }
-  };
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete payment.');
+    } finally {
+      setDeleteId(null);
+    }
+};
 
   // unpaid / partial invoices only (can still receive payments)
   const payableInvoices = invoices.filter(i => i.status !== 'paid');

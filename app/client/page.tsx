@@ -8,6 +8,7 @@ interface Client {
   id: number;
   full_name: string;
   phone: string;
+  email:string;
   nationality: string;
   notes?: string;
   created_at: string;
@@ -22,7 +23,7 @@ const NAV = [
   { key: 'payments',  label: 'Payments',   icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z', href: '/payment' },
 ];
 
-const EMPTY_FORM = { full_name: '', phone: '', nationality: '', notes: '' };
+const EMPTY_FORM = { full_name: '', phone: '', email: '', nationality: '', notes: '' };
 
 export default function ClientsPage() {
   const router = useRouter();
@@ -478,6 +479,7 @@ const handleDelete = async (id: number) => {
                     <tr>
                       <th className="cl-th">Client</th>
                       <th className="cl-th">Phone</th>
+                      <th className="cl-th">Email</th>  
                       <th className="cl-th">Nationality</th>
                       <th className="cl-th">Registered</th>
                       <th className="cl-th" />
@@ -493,6 +495,7 @@ const handleDelete = async (id: number) => {
                           </div>
                         </td>
                         <td className="cl-td cl-td-muted">{c.phone}</td>
+                        <td className="cl-td cl-td-muted">{c.email || '—'}</td>
                         <td className="cl-td cl-td-muted">{c.nationality || '—'}</td>
                         <td className="cl-td cl-td-dim">{c.created_at?.slice(0, 10)}</td>
                         <td className="cl-td" style={{ textAlign: 'right' }} onClick={e => e.stopPropagation()}>
@@ -530,6 +533,10 @@ const handleDelete = async (id: number) => {
                     <input className="cl-input" placeholder="+254 700 000 000" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} required />
                   </div>
                   <div className="cl-field">
+                    <label className="cl-label">Email *</label>
+                    <input className="cl-input" type="email" placeholder="client@example.com" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required />
+                  </div>
+                  <div className="cl-field">
                     <label className="cl-label">Nationality</label>
                     <input className="cl-input" placeholder="Kenyan" value={form.nationality} onChange={e => setForm({ ...form, nationality: e.target.value })} />
                   </div>
@@ -565,6 +572,7 @@ const handleDelete = async (id: number) => {
               <div className="cl-modal-body">
                 {[
                   { key: 'Phone',       val: selected.phone },
+                  { key: 'Email',       val: selected.email || '—' },
                   { key: 'Nationality', val: selected.nationality || '—' },
                   { key: 'Registered',  val: selected.created_at?.slice(0, 10) },
                   { key: 'Notes',       val: selected.notes || '—' },
