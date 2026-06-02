@@ -81,13 +81,35 @@ export async function searchClients(query: string): Promise<Client[]> {
 }
 
 /** GET /clients/:id — fetch a single client */
-export async function fetchClientById(id: number): Promise<Client> {
-  const res = await fetch(`${BASE_URL}/clients/${id}`, {
-    method: 'GET',
-    headers: getHeaders(),
-  });
-  return handleResponse<Client>(res);
-}
+  export async function fetchClientById(
+    clientId: number,
+    token?: string
+  ) {
+    const authToken =
+      token ?? localStorage.getItem('token');
+
+    if (!authToken) {
+      throw new Error('No authentication token found');
+    }
+
+    const response = await fetch(
+      `${BASE_URL}/clients/${clientId}`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `HTTP ${response.status}`
+      );
+    }
+
+    return response.json();
+  }
 
 /** POST /clients — create a new client */
 export async function createClient(payload: CreateClientPayload): Promise<Client> {

@@ -1,5 +1,4 @@
 'use client';
-
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { login } from '../API/loginApi'; 
@@ -28,6 +27,7 @@ const handleSubmit = async (e: FormEvent) => {
       const data = await login(email, password);
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
+      // console.log('Login successful:', data);
       router.push('/dashboard');
     } catch (err: unknown) {
       if (err instanceof Error) {
