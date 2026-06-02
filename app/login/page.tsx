@@ -19,27 +19,26 @@ export default function LoginPage() {
     if (token) router.replace('/dashboard');
   }, [router]);
 
-const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      const data = await login(email, password);
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      // console.log('Login successful:', data);
-      router.push('/dashboard');
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Could not reach the server. Check your connection.');
+  const handleSubmit = async (e: FormEvent) => {
+      e.preventDefault();
+      setError('');
+      setLoading(true);
+      try {
+        const data = await login(email, password);
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        // console.log('Login successful:', data);
+        router.push('/dashboard');
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('Could not reach the server. Check your connection.');
+        }
+      } finally {
+        setLoading(false);
       }
-    } finally {
-      setLoading(false);
-    }
-  };
-
+    };
 
   return (
     <>
