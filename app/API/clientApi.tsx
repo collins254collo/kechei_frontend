@@ -15,6 +15,7 @@ const getHeaders = (): Record<string, string> => {
 
 
 export interface Client {
+  name: string;
   id: number;
   full_name: string;
   phone: string;

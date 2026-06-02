@@ -18,11 +18,12 @@ export interface Visit {
   full_name?: string;  
   reason: string;
   notes?: string;
-   room_number?: string;
+  room_number?: string;
   status: 'active' | 'completed';
   created_at: string;
   completed_at?: string;
   check_in?: string;     
+  phone:number;
 }
 
 export interface CreateVisitPayload {
@@ -54,8 +55,8 @@ export async function fetchVisits(): Promise<Visit[]> {
 }
 
 /** GET /visits/active */
-export async function fetchActiveVisits(): Promise<Visit[]> {
-  const res = await fetch(`${BASE_URL}/visits/active`, { headers: getHeaders() });
+export async function fetchActiveVisits(headers: { 'Content-Type': string; Authorization: string; }): Promise<Visit[]> {
+  const res = await fetch(`${BASE_URL}/visits/active`, { headers });
   return handleResponse<Visit[]>(res);
 }
 

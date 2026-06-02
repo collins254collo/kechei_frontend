@@ -2,49 +2,145 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { fetchActiveVisits, Visit } from '../API/visitApi';
+import { fetchInvoices } from '../API/invoiceApi';
+import { fetchClientById } from '../API/clientApi';
 
-//  Types
+// Types
 interface User { id: number; name: string; email: string; role: string; }
-interface Visit { id: number; client_id: number; full_name: string; phone: string; check_in: string; check_out?: string; status: 'active' | 'completed'; }
 interface Invoice { id: number; invoice_number: string; full_name: string; total_amount: number; total_expenses: number; status: 'unpaid' | 'partial' | 'paid'; issued_date: string; }
-interface Expense { id: number; visit_id: number; category: string; amount: number; expense_date: string; }
-interface Payment { id: number; invoice_id: number; amount_paid: number; method: string; payment_date: string; }
 
-//Nav items 
+interface EnrichedVisit extends Visit {
+  client_name: string;
+  client_phone: string;
+}
+
+// Nav items 
 const NAV = [
-  { key: 'dashboard', label: 'Dashboard',  icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', href: '/dashboard' },
-  { key: 'clients',   label: 'Clients',    icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', href: '/client' },
-  { key: 'visit',    label: 'Visits',     icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', href: '/visit' },
-  { key: 'expenses',  label: 'Expenses',   icon: 'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z', href: '/expense' },
-  { key: 'invoices',  label: 'Invoices',   icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', href: '/invoice' },
-  { key: 'payments',  label: 'Payments',   icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z', href: '/payment' },
+  { key: 'dashboard', label: 'Dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', href: '/dashboard' },
+  { key: 'clients', label: 'Clients', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', href: '/client' },
+  { key: 'visit', label: 'Visits', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', href: '/visit' },
+  { key: 'expenses', label: 'Expenses', icon: 'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z', href: '/expense' },
+  { key: 'invoices', label: 'Invoices', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', href: '/invoice' },
+  { key: 'payments', label: 'Payments', icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z', href: '/payment' },
 ];
 
 function fmt(n: number) { return `KES ${Number(n).toLocaleString()}`; }
-function ago(d: string) {
-  const diff = Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Yesterday';
-  return `${diff}d ago`;
+
+function formatDate(dateString: string | undefined) {
+  if (!dateString) return '—';
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  
+  return date.toLocaleDateString('en-KE', { 
+    day: '2-digit', 
+    month: 'short',
+    year: 'numeric'
+  });
 }
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [user, setUser]         = useState<User | null>(null);
-  const [visits, setVisits]     = useState<Visit[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [visits, setVisits] = useState<EnrichedVisit[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [loading, setLoading]   = useState(true);
+  const [loading, setLoading] = useState(true);
   const [sideOpen, setSideOpen] = useState(false);
-  const [active, setActive]     = useState('dashboard');
-  const [mounted, setMounted]   = useState(false);
-
-  const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+  const [active, setActive] = useState('dashboard');
+  const [mounted, setMounted] = useState(false);
 
   const headers = () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
     return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+  };
+
+  // Direct API call to fetch client by ID (bypassing the imported function if it's broken)
+  const fetchClientDirectly = async (clientId: number) => {
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_URL}/clients/${clientId}`, {
+        headers: headers()
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log(`Client ${clientId} data:`, data); // Debug log
+      return data;
+    } catch (error) {
+      console.error(`Error fetching client ${clientId}:`, error);
+      return null;
+    }
+  };
+
+  // Enrich visits with client details
+  const enrichVisitsWithClientDetails = async (rawVisits: Visit[]): Promise<EnrichedVisit[]> => {
+    // Create a cache to avoid duplicate client fetches
+    const clientCache = new Map<number, any>();
+    
+    const enrichedVisits = await Promise.all(
+      rawVisits.map(async (visit) => {
+        try {
+          let client = clientCache.get(visit.client_id);
+          
+          if (!client) {
+            // Try using the imported function first
+            try {
+              client = await fetchClientById(visit.client_id);
+              // console.log(`fetchClientById returned for ${visit.client_id}:`, client);
+            } catch (err) {
+              // console.log(`fetchClientById failed, trying direct fetch for ${visit.client_id}`);
+              client = await fetchClientDirectly(visit.client_id);
+            }
+            
+            if (client) {
+              clientCache.set(visit.client_id, client);
+            }
+          }
+          
+          // Extract client name from different possible response structures
+          let clientName = `Client #${visit.client_id}`;
+          let clientPhone = '—';
+          
+          if (client) {
+            // Try different possible field names
+            clientName = client.name || client.full_name || client.client_name || client.fullName || `Client #${visit.client_id}`;
+            clientPhone = client.phone || client.phone_number || client.mobile || '—';
+          }
+          
+          // console.log(`Visit ${visit.id}: Client name = ${clientName}`); // Debug log
+          
+          return {
+            ...visit,
+            client_name: clientName,
+            client_phone: clientPhone,
+            check_in: visit.check_in || visit.created_at,
+          };
+        } catch (error) {
+          console.error(`Error processing visit ${visit.id}:`, error);
+          return {
+            ...visit,
+            client_name: `Client #${visit.client_id}`,
+            client_phone: '—',
+            check_in: visit.check_in || visit.created_at,
+          };
+        }
+      })
+    );
+    
+    return enrichedVisits;
   };
 
   useEffect(() => {
@@ -52,15 +148,48 @@ export default function DashboardPage() {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
     if (stored) setUser(JSON.parse(stored));
 
-    const h = headers();
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch active visits and invoices in parallel
+        const [visitsResult, invoicesResult] = await Promise.allSettled([
+          fetchActiveVisits(headers()),
+          fetchInvoices(headers()),
+        ]);
 
-    Promise.allSettled([
-      fetch(`${API}/visits/active`,  { headers: h }).then(r => r.json()),
-      fetch(`${API}/invoices`,       { headers: h }).then(r => r.json()),
-    ]).then(([v, i]) => {
-      if (v.status === 'fulfilled' && Array.isArray(v.value)) setVisits(v.value);
-      if (i.status === 'fulfilled' && Array.isArray(i.value)) setInvoices(i.value);
-    }).finally(() => setLoading(false));
+        // Process visits
+        if (visitsResult.status === 'fulfilled' && Array.isArray(visitsResult.value)) {
+          // console.log('Raw visits received:', visitsResult.value);
+          
+          // Log the first visit to see its structure
+          if (visitsResult.value.length > 0) {
+            // console.log('First raw visit:', visitsResult.value[0]);
+          }
+          
+          const enrichedVisits = await enrichVisitsWithClientDetails(visitsResult.value);
+          // console.log('Enriched visits:', enrichedVisits);
+          setVisits(enrichedVisits);
+        } else if (visitsResult.status === 'rejected') {
+          console.error('Failed to fetch visits:', visitsResult.reason);
+          setVisits([]);
+        }
+
+        // Process invoices
+        if (invoicesResult.status === 'fulfilled' && Array.isArray(invoicesResult.value)) {
+          setInvoices(invoicesResult.value);
+        } else if (invoicesResult.status === 'rejected') {
+          console.error('Failed to fetch invoices:', invoicesResult.reason);
+          setInvoices([]);
+        }
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
   }, []);
 
   const logout = () => {
@@ -69,20 +198,21 @@ export default function DashboardPage() {
     router.push('/login');
   };
 
-  //  Derived stats
-  const totalRevenue   = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.total_amount), 0);
-  const outstanding    = invoices.filter(i => i.status !== 'paid').reduce((s, i) => s + Number(i.total_amount), 0);
-  const unpaidCount    = invoices.filter(i => i.status === 'unpaid').length;
-  const activeVisits   = visits.filter(v => v.status === 'active').length;
+  // Derived stats
+  const totalRevenue = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.total_amount), 0);
+  const outstanding = invoices.filter(i => i.status !== 'paid').reduce((s, i) => s + Number(i.total_amount), 0);
+  const unpaidCount = invoices.filter(i => i.status === 'unpaid').length;
+  const activeVisits = visits.filter(v => v.status === 'active').length;
 
   const statusColor = (s: string) => {
-    if (s === 'paid'    || s === 'completed') return 'var(--badge-green-tx)';
-    if (s === 'partial' || s === 'active')    return 'var(--badge-amber-tx)';
+    if (s === 'paid' || s === 'completed') return 'var(--badge-green-tx)';
+    if (s === 'partial' || s === 'active') return 'var(--badge-amber-tx)';
     return 'var(--badge-red-tx)';
   };
+  
   const statusBg = (s: string) => {
-    if (s === 'paid'    || s === 'completed') return 'var(--badge-green-bg)';
-    if (s === 'partial' || s === 'active')    return 'var(--badge-amber-bg)';
+    if (s === 'paid' || s === 'completed') return 'var(--badge-green-bg)';
+    if (s === 'partial' || s === 'active') return 'var(--badge-amber-bg)';
     return 'var(--badge-red-bg)';
   };
 
@@ -469,7 +599,7 @@ export default function DashboardPage() {
 
       <div className="db-root">
 
-        {/*  Sidebar  */}
+        {/* Sidebar */}
         <aside className={`db-side ${sideOpen ? 'open' : ''}`}>
           <div className="db-side-head">
             <div className="db-brand">Kechei</div>
@@ -484,7 +614,7 @@ export default function DashboardPage() {
                 onClick={() => {
                   setActive(key);
                   setSideOpen(false);
-                  router.push(href); 
+                  router.push(href);
                 }}
               >
                 <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
@@ -505,7 +635,7 @@ export default function DashboardPage() {
         {/* Mobile overlay */}
         <div className={`db-overlay ${sideOpen ? 'open' : ''}`} onClick={() => setSideOpen(false)} />
 
-        {/*  Main  */}
+        {/* Main */}
         <div className="db-main">
 
           {/* Top bar */}
@@ -525,13 +655,13 @@ export default function DashboardPage() {
 
           <div className="db-content">
 
-            {/*  Stat cards */}
+            {/* Stat cards */}
             <div className="db-stats">
               {[
-                { label: 'Active visits',   value: loading ? '—' : String(activeVisits),            sub: 'Currently on site' },
-                { label: 'Total revenue',   value: loading ? '—' : fmt(totalRevenue),               sub: 'From paid invoices' },
-                { label: 'Outstanding',     value: loading ? '—' : fmt(outstanding),                sub: `${unpaidCount} unpaid invoice${unpaidCount !== 1 ? 's' : ''}` },
-                { label: 'Total invoices',  value: loading ? '—' : String(invoices.length),         sub: 'All time' },
+                { label: 'Active visits', value: loading ? '—' : String(activeVisits), sub: 'Currently on site' },
+                { label: 'Total revenue', value: loading ? '—' : fmt(totalRevenue), sub: 'From paid invoices' },
+                { label: 'Outstanding', value: loading ? '—' : fmt(outstanding), sub: `${unpaidCount} unpaid invoice${unpaidCount !== 1 ? 's' : ''}` },
+                { label: 'Total invoices', value: loading ? '—' : String(invoices.length), sub: 'All time' },
               ].map(({ label, value, sub }) => (
                 <div key={label} className="db-stat" style={{ opacity: mounted ? 1 : 0 }}>
                   <div className="db-stat-label">{label}</div>
@@ -541,18 +671,23 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            {/*  Active visits + Invoice status  */}
+            {/* Active visits + Invoice status */}
             <div className="db-grid-3">
 
-              {/* Active visits */}
+              {/* Active visits - FIXED with client names */}
               <div className="db-card">
                 <div className="db-card-head">
                   <span className="db-card-title">Active visits</span>
-                  <button className="db-card-link">View all →</button>
+                  <button 
+                    className="db-card-link" 
+                    onClick={() => router.push('/visit')}
+                  >
+                    View all →
+                  </button>
                 </div>
                 {loading ? (
                   <div style={{ padding: '20px' }}>
-                    {[1,2,3].map(i => <div key={i} className="db-skel" style={{ marginBottom: '12px', width: `${60 + i * 10}%` }} />)}
+                    {[1, 2, 3].map(i => <div key={i} className="db-skel" style={{ marginBottom: '12px', width: `${60 + i * 10}%` }} />)}
                   </div>
                 ) : visits.length === 0 ? (
                   <div className="db-empty">No active visits</div>
@@ -560,21 +695,27 @@ export default function DashboardPage() {
                   <table className="db-table">
                     <thead>
                       <tr>
-                        <th className="db-th">Client</th>
+                        <th className="db-th">Client Name</th>
                         <th className="db-th">Phone</th>
-                        <th className="db-th">Check-in</th>
+                        <th className="db-th">Check-in Time</th>
                         <th className="db-th">Status</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {visits.slice(0, 6).map(v => (
-                        <tr key={v.id} className="db-tr">
-                          <td className="db-td" style={{ fontWeight: 500 }}>{v.full_name}</td>
-                          <td className="db-td db-td-muted">{v.phone}</td>
-                          <td className="db-td db-td-muted">{v.check_in}</td>
+                      {visits.slice(0, 6).map((visit) => (
+                        <tr key={visit.id} className="db-tr">
+                          <td className="db-td" style={{ fontWeight: 500 }}>
+                            {visit.client_name}
+                          </td>
+                          <td className="db-td db-td-muted">
+                            {visit.client_phone}
+                          </td>
+                          <td className="db-td db-td-muted">
+                            {formatDate(visit.check_in || visit.created_at)}
+                          </td>
                           <td className="db-td">
-                            <span className="db-badge" style={{ color: statusColor(v.status), background: statusBg(v.status) }}>
-                              {v.status}
+                            <span className="db-badge" style={{ color: statusColor(visit.status), background: statusBg(visit.status) }}>
+                              {visit.status}
                             </span>
                           </td>
                         </tr>
@@ -591,7 +732,7 @@ export default function DashboardPage() {
                 </div>
                 {loading ? (
                   <div style={{ padding: '20px' }}>
-                    {[1,2,3].map(i => <div key={i} className="db-skel" style={{ marginBottom: '12px' }} />)}
+                    {[1, 2, 3].map(i => <div key={i} className="db-skel" style={{ marginBottom: '12px' }} />)}
                   </div>
                 ) : (
                   <div style={{ padding: '8px 0' }}>
@@ -617,18 +758,23 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/*  Recent invoices + Payments ── */}
+            {/* Recent invoices + Revenue overview */}
             <div className="db-grid-2">
 
               {/* Recent invoices */}
               <div className="db-card">
                 <div className="db-card-head">
                   <span className="db-card-title">Recent invoices</span>
-                  <button className="db-card-link">View all →</button>
+                  <button 
+                    className="db-card-link"
+                    onClick={() => router.push('/invoice')}
+                  >
+                    View all →
+                  </button>
                 </div>
                 {loading ? (
                   <div style={{ padding: '20px' }}>
-                    {[1,2,3].map(i => <div key={i} className="db-skel" style={{ marginBottom: '12px', width: `${55 + i * 12}%` }} />)}
+                    {[1, 2, 3].map(i => <div key={i} className="db-skel" style={{ marginBottom: '12px', width: `${55 + i * 12}%` }} />)}
                   </div>
                 ) : invoices.length === 0 ? (
                   <div className="db-empty">No invoices yet</div>
@@ -660,16 +806,16 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* Revenue breakdown by category (mock from invoices) */}
+              {/* Revenue breakdown */}
               <div className="db-card">
                 <div className="db-card-head">
                   <span className="db-card-title">Revenue overview</span>
                 </div>
                 <div style={{ padding: '8px 0' }}>
                   {[
-                    { label: 'Collected',    value: totalRevenue,              color: 'var(--badge-green-tx)' },
-                    { label: 'Partial',      value: invoices.filter(i => i.status === 'partial').reduce((s,i) => s + Number(i.total_amount), 0), color: 'var(--badge-amber-tx)' },
-                    { label: 'Unpaid',       value: invoices.filter(i => i.status === 'unpaid').reduce((s,i) => s + Number(i.total_amount), 0),  color: 'var(--badge-red-tx)' },
+                    { label: 'Collected', value: totalRevenue, color: 'var(--badge-green-tx)' },
+                    { label: 'Partial', value: invoices.filter(i => i.status === 'partial').reduce((s, i) => s + Number(i.total_amount), 0), color: 'var(--badge-amber-tx)' },
+                    { label: 'Unpaid', value: invoices.filter(i => i.status === 'unpaid').reduce((s, i) => s + Number(i.total_amount), 0), color: 'var(--badge-red-tx)' },
                   ].map(({ label, value, color }) => {
                     const grand = totalRevenue + outstanding || 1;
                     return (

@@ -66,7 +66,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
 }
 
 /** GET /invoices — fetch all invoices */
-export async function fetchInvoices(): Promise<Invoice[]> {
+export async function fetchInvoices(h?: { 'Content-Type': string; Authorization: string; }): Promise<Invoice[]> {
   const res = await fetch(`${BASE_URL}/invoices`, {
     method: 'GET',
     headers: getHeaders(),

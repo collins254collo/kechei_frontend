@@ -70,8 +70,12 @@ export default function VisitsPage() {
   // ── Load visits + clients ──
   const load = () => {
     setLoading(true);
+    const headers = () => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+      return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+    };
     Promise.allSettled([
-      fetchActiveVisits(),
+      fetchActiveVisits(headers()),
       fetchClients(),
     ]).then(([v, c]) => {
       if (v.status === 'fulfilled') setVisits(v.value as Visit[]);
