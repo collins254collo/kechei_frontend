@@ -64,26 +64,24 @@ export default function DashboardPage() {
     return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
   };
 
-  // Direct API call to fetch client by ID (bypassing the imported function if it's broken)
-  const fetchClientDirectly = async (clientId: number) => {
-    try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${API_URL}/clients/${clientId}`, {
-        headers: headers()
-      });
+  // const fetchClientDirectly = async (clientId: number) => {
+  //   try {
+  //     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+  //     const response = await fetch(`${API_URL}/clients/${clientId}`, {
+  //       headers: headers()
+  //     });
       
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+  //     if (!response.ok) {
+  //       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  //     }
       
-      const data = await response.json();
-      console.log(`Client ${clientId} data:`, data); // Debug log
-      return data;
-    } catch (error) {
-      console.error(`Error fetching client ${clientId}:`, error);
-      return null;
-    }
-  };
+  //     const data = await response.json();
+  //     return data;
+  //   } catch (error) {
+  //     console.error(`Error fetching client ${clientId}:`, error);
+  //     return null;
+  //   }
+  // };
 
   // Enrich visits with client details
   const enrichVisitsWithClientDetails = async (rawVisits: Visit[]): Promise<EnrichedVisit[]> => {
@@ -102,7 +100,7 @@ export default function DashboardPage() {
               // console.log(`fetchClientById returned for ${visit.client_id}:`, client);
             } catch (err) {
               // console.log(`fetchClientById failed, trying direct fetch for ${visit.client_id}`);
-              client = await fetchClientDirectly(visit.client_id);
+              // client = await fetchClientDirectly(visit.client_id);
             }
             
             if (client) {
@@ -120,7 +118,7 @@ export default function DashboardPage() {
             clientPhone = client.phone || client.phone_number || client.mobile || '—';
           }
           
-          // console.log(`Visit ${visit.id}: Client name = ${clientName}`); // Debug log
+          // console.log(`Visit ${visit.id}: Client name = ${clientName}`);  Debug log
           
           return {
             ...visit,
@@ -161,7 +159,6 @@ export default function DashboardPage() {
         // Process visits
         if (visitsResult.status === 'fulfilled' && Array.isArray(visitsResult.value)) {
           // console.log('Raw visits received:', visitsResult.value);
-          
           // Log the first visit to see its structure
           if (visitsResult.value.length > 0) {
             // console.log('First raw visit:', visitsResult.value[0]);

@@ -98,7 +98,7 @@ export default function VisitsPage() {
     router.push('/login');
   };
 
-  // ── Filtered list ──
+  //  Filtered list
   const filtered = visits.filter(v => {
     const matchFilter = filter === 'all' || v.status === filter;
     const q = search.toLowerCase();
@@ -115,7 +115,7 @@ export default function VisitsPage() {
     new Date(v.created_at).toDateString() === new Date().toDateString()
   ).length;
 
-  // ── Complete visit ──
+  //  Complete visit 
   const handleCheckOut = async (id: number) => {
     setCheckOutId(id);
     try {
@@ -128,7 +128,7 @@ export default function VisitsPage() {
     }
   };
 
-  // ── Create visit ──
+  //  Create visit 
   const handleSubmit = async () => {
     if (!form.client_id)     { setFormErr('Please select a client.'); return; }
     if (!form.reason.trim()) { setFormErr('Please enter a reason for the visit.'); return; }
