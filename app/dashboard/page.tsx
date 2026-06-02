@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { fetchActiveVisits, Visit } from '../API/visitApi';
 import { fetchInvoices } from '../API/invoiceApi';
 import { fetchClientById } from '../API/clientApi';
+import ProtectedPage from '../protectedPage';
 
 // Types
 interface User { id: number; name: string; email: string; role: string; }
@@ -214,6 +215,7 @@ export default function DashboardPage() {
   };
 
   return (
+    <ProtectedPage>
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&display=swap');
@@ -839,5 +841,6 @@ export default function DashboardPage() {
         </div>
       </div>
     </>
+    </ProtectedPage>
   );
 }

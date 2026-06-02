@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { fetchInvoices, generateInvoiceFromVisit, updateInvoice, createInvoice, CreateInvoicePayload } from '../API/invoiceApi';
 import { fetchClients } from '../API/clientApi';
 import { fetchVisits } from '../API/visitApi';
+import ProtectedPage from '../protectedPage';
 
 //  Types 
 interface User    { id: number; name: string; email: string; role: string; }
@@ -141,9 +142,6 @@ export default function InvoicesPage() {
         visit_id: Number(form.visit_id),
         ...(form.due_date && { due_date: form.due_date }),
         ...(form.notes && { notes: form.notes }),
-        client_id: 0,
-        total_amount: 0,
-        issued_date: ''
       });
     } else {
       // Manual invoice
@@ -181,6 +179,7 @@ export default function InvoicesPage() {
   };
 
   return (
+    <ProtectedPage>
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&display=swap');
@@ -646,5 +645,6 @@ export default function InvoicesPage() {
         </div>
       )}
     </>
+    </ProtectedPage>
   );
 }

@@ -53,7 +53,7 @@ export async function fetchExpensesByVisit(visitId: number): Promise<Expense[]> 
 }
 
 /** GET /expenses — fetch all expenses (used by the expenses page) */
-export async function fetchExpenses(): Promise<Expense[]> {
+export async function fetchExpenses(headers: { 'Content-Type': string; Authorization: string; }): Promise<Expense[]> {
   const res = await fetch(`${BASE_URL}/expenses`, {
     method: 'GET',
     headers: getHeaders(),

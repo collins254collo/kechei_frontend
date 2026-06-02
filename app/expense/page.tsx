@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchExpenses, createExpense, deleteExpense } from '../API/expenseApi';
 import { fetchActiveVisits, fetchVisits } from '../API/visitApi'; 
+import ProtectedPage from '../protectedPage';
 
-// ── Types ──
+//  Types 
 interface User    { id: number; name: string; email: string; role: string; }
 interface Visit {
   id: number;
@@ -51,7 +52,7 @@ const CAT_COLORS: Record<string, string> = {
 
 function fmt(n: number) { return `KES ${Number(n).toLocaleString()}`; }
 function fmtDate(d: string) {
-  if (!d) return '—';
+  if (!d) return '—';``
   return new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
@@ -78,9 +79,11 @@ export default function ExpensesPage() {
 
 const load = () => {
   setLoading(true);
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') || '' : '';
+  const headers = { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' };
   Promise.allSettled([
-    fetchExpenses(),
-    fetchActiveVisits(),
+    fetchExpenses(headers),
+    fetchActiveVisits(headers),
   ]).then(([e, v]) => {
     if (e.status === 'fulfilled') setExpenses(e.value);
     if (v.status === 'fulfilled') setVisits(v.value as Visit[]);
@@ -96,7 +99,7 @@ const load = () => {
 
   const logout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); router.push('/login'); };
 
-  // ── Derived ──
+  //  Derived 
   const filtered = expenses.filter(e => {
     const matchCat = catFilter === 'all' || e.category === catFilter;
     const q = search.toLowerCase();
@@ -160,6 +163,7 @@ const load = () => {
   }
 };
   return (
+    <ProtectedPage>
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&display=swap');
@@ -567,5 +571,6 @@ const load = () => {
         </div>
       )}
     </>
+    </ProtectedPage>
   );
 }

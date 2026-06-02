@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchPayments, createPayment, deletePayment } from '../API/paymentApi';
 import { fetchInvoices } from '../API/invoiceApi';
+import ProtectedPage from '../protectedPage';
 
 // ── Types ──
 interface User    { id: number; name: string; email: string; role: string; }
@@ -192,6 +193,7 @@ export default function PaymentsPage() {
   const payableInvoices = invoices.filter(i => i.status !== 'paid');
 
   return (
+    <ProtectedPage>
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&display=swap');
@@ -724,5 +726,6 @@ export default function PaymentsPage() {
         </div>
       )}
     </>
+    </ProtectedPage>
   );
 }
