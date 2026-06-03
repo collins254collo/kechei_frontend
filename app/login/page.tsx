@@ -14,10 +14,12 @@ export default function LoginPage() {
   useEffect(() => setMounted(true), []);
 
   // redirect if already logged in
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) router.replace('/dashboard');
-  }, [router]);
+useEffect(() => {
+  const token = localStorage.getItem('token');
+  if (token && token !== 'null' && token !== 'undefined') {
+    router.replace('/dashboard');
+  }
+}, [router]);
 
   const handleSubmit = async (e: FormEvent) => {
       e.preventDefault();

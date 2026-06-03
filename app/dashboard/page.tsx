@@ -60,10 +60,10 @@ export default function DashboardPage() {
   const [active, setActive] = useState('dashboard');
   const [mounted, setMounted] = useState(false);
 
-  const headers = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-    return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-  };
+  // const headers = () => {
+  //   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+  //   return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+  // };
 
   // const fetchClientDirectly = async (clientId: number) => {
   //   try {
@@ -85,6 +85,7 @@ export default function DashboardPage() {
   // };
 
   // Enrich visits with client details
+ 
   const enrichVisitsWithClientDetails = async (rawVisits: Visit[]): Promise<EnrichedVisit[]> => {
     // Create a cache to avoid duplicate client fetches
     const clientCache = new Map<number, any>();
@@ -144,51 +145,47 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setMounted(true);
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-    if (stored) setUser(JSON.parse(stored));
-
-    const loadData = async () => {
+    const stored = localStorage.getItem('user');
+    if (stored) {
       try {
-        setLoading(true);
-        
-        // Fetch active visits and invoices in parallel
-        const [visitsResult, invoicesResult] = await Promise.allSettled([
-          fetchActiveVisits(headers()),
-          fetchInvoices(headers()),
-        ]);
-
-        // Process visits
-        if (visitsResult.status === 'fulfilled' && Array.isArray(visitsResult.value)) {
-          // console.log('Raw visits received:', visitsResult.value);
-          // Log the first visit to see its structure
-          if (visitsResult.value.length > 0) {
-            // console.log('First raw visit:', visitsResult.value[0]);
-          }
-          
-          const enrichedVisits = await enrichVisitsWithClientDetails(visitsResult.value);
-          // console.log('Enriched visits:', enrichedVisits);
-          setVisits(enrichedVisits);
-        } else if (visitsResult.status === 'rejected') {
-          console.error('Failed to fetch visits:', visitsResult.reason);
-          setVisits([]);
-        }
-
-        // Process invoices
-        if (invoicesResult.status === 'fulfilled' && Array.isArray(invoicesResult.value)) {
-          setInvoices(invoicesResult.value);
-        } else if (invoicesResult.status === 'rejected') {
-          console.error('Failed to fetch invoices:', invoicesResult.reason);
-          setInvoices([]);
-        }
-      } catch (error) {
-        console.error('Error loading dashboard data:', error);
-      } finally {
-        setLoading(false);
+        setUser(JSON.parse(stored));
+      } catch {
       }
-    };
-
-    loadData();
+    }
   }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    loadData();
+  }, [mounted]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+
+      const [visitsResult, invoicesResult] = await Promise.allSettled([
+        fetchActiveVisits(),
+        fetchInvoices(),
+      ]);
+
+      if (visitsResult.status === 'fulfilled' && Array.isArray(visitsResult.value)) {
+        const enrichedVisits = await enrichVisitsWithClientDetails(visitsResult.value);
+        setVisits(enrichedVisits);
+      } else {
+        setVisits([]);
+      }
+
+      if (invoicesResult.status === 'fulfilled' && Array.isArray(invoicesResult.value)) {
+        setInvoices(invoicesResult.value);
+      } else {
+        setInvoices([]);
+      }
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const logout = () => {
     localStorage.removeItem('token');

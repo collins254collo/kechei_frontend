@@ -1,14 +1,47 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'; 
 
 const getToken = (): string | null => {
-  if (typeof window === 'undefined') return null; 
-  return localStorage.getItem('token');
+  if (typeof window === 'undefined') return null;
+  const token = localStorage.getItem('token');
+  if (!token || token === 'null' || token === 'undefined') return null; 
+  return token;
 };
 
-const authHeaders = () => ({
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${getToken()}`,
-});
+const authHeaders = (): Record<string, string> => {
+  const token = getToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+};
+
+export async function getMe() {
+  const token = getToken();
+
+  if (!token) {
+    throw new Error('No token found.');
+  }
+
+  const res = await fetch(`${BASE_URL}/auth/me`, {
+    method: 'GET',
+    headers: authHeaders(), 
+  });
+
+  if (res.status === 401 || res.status === 403) {
+    throw new Error('Unauthorized');
+  }
+
+  const text = await res.text();
+
+  if (!text || text.trim() === '') {
+    return { authenticated: true };
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { authenticated: true };
+  }
+}
 
 export async function login(email: string, password: string) {
   const res = await fetch(`${BASE_URL}/auth/login`, {
@@ -23,26 +56,14 @@ export async function login(email: string, password: string) {
     throw new Error(data.error || data.message || 'Invalid credentials.');
   }
 
-  
-  if (data.token) localStorage.setItem('token', data.token);
-  if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
-
-  return data;
-}
-
-export async function getMe() {
-  const res = await fetch(`${BASE_URL}/auth/me`, {
-    method: 'GET',
-    headers: authHeaders(),
-  });
-
-  if (res.status === 401) {
-    logout(); 
-    throw new Error('Session expired. Please login again.');
+  if (data.token && data.token !== 'null') {
+    localStorage.setItem('token', data.token);
+  }
+  if (data.user) {
+    localStorage.setItem('user', JSON.stringify(data.user));
   }
 
-  if (!res.ok) throw new Error('Failed to fetch session.');
-  return res.json();
+  return data;
 }
 
 export async function getAllUsers() {
@@ -80,7 +101,7 @@ export async function deleteUser(id: number) {
 }
 
 export function logout() {
-  if (typeof window === 'undefined') return; 
+  if (typeof window === 'undefined') return;
   localStorage.removeItem('token');
   localStorage.removeItem('user');
   window.location.href = '/login';

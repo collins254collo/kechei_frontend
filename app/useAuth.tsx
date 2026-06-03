@@ -10,29 +10,42 @@ export function useAuthGuard() {
   const [authState, setAuthState] = useState<AuthState>('loading');
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const token = localStorage.getItem('token');
+    //    before we try to read and validate the token
+    const timer = setTimeout(async () => {
+      const token = localStorage.getItem('token');
+      console.log('[useAuthGuard] token from localStorage:', token);
 
-        if (!token || token === 'null' || token === 'undefined') {
-          setAuthState('unauthorized');
-          router.replace('/login');
-          return;
+      if (!token || token === 'null' || token === 'undefined') {
+        setAuthState('unauthorized');
+        router.replace('/login');
+        return;
+      }
+
+    try {
+      console.log('[useAuthGuard] Token looks valid, about to call getMe...');
+      const me = await getMe();
+      console.log('[useAuthGuard] getMe() success:', me);
+      setAuthState('authorized');
+    } catch (error: unknown) {
+      console.error('[useAuthGuard] getMe() threw:', error);
+            const isAuthError =
+          error instanceof Error &&
+          (error.message.includes('Unauthorized') ||
+           error.message.includes('Session expired') ||
+           error.message.includes('401'));
+
+        if (isAuthError) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
         }
 
-        await getMe();
-        setAuthState('authorized');
-
-      } catch (error) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
         setAuthState('unauthorized');
         router.replace('/login');
       }
-    };
+    }, 50);
 
-    checkAuth();
-  }, [router]); 
+    return () => clearTimeout(timer);
+  }, [router]);
 
   return {
     isAuthorized: authState === 'authorized',

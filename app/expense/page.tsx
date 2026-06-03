@@ -80,10 +80,10 @@ export default function ExpensesPage() {
 const load = () => {
   setLoading(true);
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') || '' : '';
-  const headers = { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' };
+  // const headers = { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' };
   Promise.allSettled([
-    fetchExpenses(headers),
-    fetchActiveVisits(headers),
+    fetchExpenses(),
+    fetchActiveVisits(),
   ]).then(([e, v]) => {
     if (e.status === 'fulfilled') setExpenses(e.value);
     if (v.status === 'fulfilled') setVisits(v.value as Visit[]);

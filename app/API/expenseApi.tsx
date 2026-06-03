@@ -1,15 +1,20 @@
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-const getHeaders = (): Record<string, string> => {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-  };
+const getToken = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  const token = localStorage.getItem('token');
+  if (!token || token === 'null' || token === 'undefined') return null;
+  return token;
 };
 
-//  Types 
+const getHeaders = (): Record<string, string> => {
+  const token = getToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+};
 
+// Types
 export interface Expense {
   id: number;
   visit_id: number;
@@ -35,15 +40,14 @@ export interface UpdateExpensePayload {
   description?: string;
 }
 
-
+// Helper
 async function handleResponse<T>(res: Response): Promise<T> {
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || data.message || `Request failed: ${res.status}`);
   return data as T;
 }
 
-
-/** GET /expenses/visit/:visitId — fetch all expenses for a visit */
+/** GET /expenses/visit/:visitId */
 export async function fetchExpensesByVisit(visitId: number): Promise<Expense[]> {
   const res = await fetch(`${BASE_URL}/expenses/visit/${visitId}`, {
     method: 'GET',
@@ -52,8 +56,8 @@ export async function fetchExpensesByVisit(visitId: number): Promise<Expense[]> 
   return handleResponse<Expense[]>(res);
 }
 
-/** GET /expenses — fetch all expenses (used by the expenses page) */
-export async function fetchExpenses(headers: { 'Content-Type': string; Authorization: string; }): Promise<Expense[]> {
+/** GET /expenses */
+export async function fetchExpenses(): Promise<Expense[]> {
   const res = await fetch(`${BASE_URL}/expenses`, {
     method: 'GET',
     headers: getHeaders(),
@@ -61,7 +65,7 @@ export async function fetchExpenses(headers: { 'Content-Type': string; Authoriza
   return handleResponse<Expense[]>(res);
 }
 
-/** POST /expenses — create a new expense */
+/** POST /expenses */
 export async function createExpense(payload: CreateExpensePayload): Promise<Expense> {
   const res = await fetch(`${BASE_URL}/expenses`, {
     method: 'POST',
@@ -71,7 +75,7 @@ export async function createExpense(payload: CreateExpensePayload): Promise<Expe
   return handleResponse<Expense>(res);
 }
 
-/** PUT /expenses/:id — update an expense */
+/** PUT /expenses/:id */
 export async function updateExpense(id: number, payload: UpdateExpensePayload): Promise<Expense> {
   const res = await fetch(`${BASE_URL}/expenses/${id}`, {
     method: 'PUT',
@@ -81,7 +85,7 @@ export async function updateExpense(id: number, payload: UpdateExpensePayload): 
   return handleResponse<Expense>(res);
 }
 
-/** DELETE /expenses/:id — delete an expense (admin only) */
+/** DELETE /expenses/:id */
 export async function deleteExpense(id: number): Promise<void> {
   const res = await fetch(`${BASE_URL}/expenses/${id}`, {
     method: 'DELETE',

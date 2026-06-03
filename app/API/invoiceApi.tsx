@@ -1,15 +1,20 @@
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-const getHeaders = (): Record<string, string> => {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-  };
+const getToken = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  const token = localStorage.getItem('token');
+  if (!token || token === 'null' || token === 'undefined') return null;
+  return token;
 };
 
-//  Types 
+const getHeaders = (): Record<string, string> => {
+  const token = getToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+};
 
+// Types
 export interface Invoice {
   id: number;
   invoice_number: string;
@@ -46,8 +51,7 @@ export interface UpdateInvoicePayload {
   notes?: string;
 }
 
-//  Helper 
-
+// Helper
 async function handleResponse<T>(res: Response): Promise<T> {
   let data: any;
   try {
@@ -55,18 +59,16 @@ async function handleResponse<T>(res: Response): Promise<T> {
   } catch {
     throw new Error(`Server error (${res.status}): Response was not valid JSON. Check your API URL.`);
   }
-
   if (!res.ok) {
     const message = data?.error || data?.message || `Request failed with status ${res.status}`;
     console.error(`[API ${res.status}] ${res.url}:`, data);
     throw new Error(message);
   }
-
   return data as T;
 }
 
-/** GET /invoices — fetch all invoices */
-export async function fetchInvoices(h?: { 'Content-Type': string; Authorization: string; }): Promise<Invoice[]> {
+/** GET /invoices */
+export async function fetchInvoices(): Promise<Invoice[]> {  
   const res = await fetch(`${BASE_URL}/invoices`, {
     method: 'GET',
     headers: getHeaders(),
@@ -74,7 +76,7 @@ export async function fetchInvoices(h?: { 'Content-Type': string; Authorization:
   return handleResponse<Invoice[]>(res);
 }
 
-/** GET /invoices/:id — fetch a single invoice */
+/** GET /invoices/:id */
 export async function fetchInvoiceById(id: number): Promise<Invoice> {
   const res = await fetch(`${BASE_URL}/invoices/${id}`, {
     method: 'GET',
@@ -83,7 +85,7 @@ export async function fetchInvoiceById(id: number): Promise<Invoice> {
   return handleResponse<Invoice>(res);
 }
 
-/** POST /invoices — create a new invoice (manual) */
+/** POST /invoices */
 export async function createInvoice(payload: CreateInvoicePayload): Promise<Invoice> {
   const res = await fetch(`${BASE_URL}/invoices`, {
     method: 'POST',
@@ -93,7 +95,7 @@ export async function createInvoice(payload: CreateInvoicePayload): Promise<Invo
   return handleResponse<Invoice>(res);
 }
 
-/** POST /invoices/generate — generate invoice from a visit */
+/** POST /invoices/generate */
 export async function generateInvoiceFromVisit(payload: GenerateInvoicePayload): Promise<Invoice> {
   const res = await fetch(`${BASE_URL}/invoices/generate`, {
     method: 'POST',
@@ -103,7 +105,7 @@ export async function generateInvoiceFromVisit(payload: GenerateInvoicePayload):
   return handleResponse<Invoice>(res);
 }
 
-/** PATCH /invoices/:id — update invoice status or fields */
+/** PATCH /invoices/:id */
 export async function updateInvoice(id: number, payload: UpdateInvoicePayload): Promise<Invoice> {
   const res = await fetch(`${BASE_URL}/invoices/${id}`, {
     method: 'PATCH',
@@ -113,7 +115,7 @@ export async function updateInvoice(id: number, payload: UpdateInvoicePayload): 
   return handleResponse<Invoice>(res);
 }
 
-/** DELETE /invoices/:id — delete an invoice (admin only) */
+/** DELETE /invoices/:id */
 export async function deleteInvoice(id: number): Promise<void> {
   const res = await fetch(`${BASE_URL}/invoices/${id}`, {
     method: 'DELETE',

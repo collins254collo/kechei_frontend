@@ -1,29 +1,33 @@
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-const getHeaders = (): Record<string, string> => {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-  };
+const getToken = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  const token = localStorage.getItem('token');
+  if (!token || token === 'null' || token === 'undefined') return null;
+  return token;
 };
 
-// Types 
+const getHeaders = (): Record<string, string> => {
+  const token = getToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+};
 
-// In visitApi.ts — replace the Visit interface
+// Types
 export interface Visit {
   id: number;
   client_id: number;
-  client_name?: string;   
-  full_name?: string;  
+  client_name?: string;
+  full_name?: string;
   reason: string;
   notes?: string;
   room_number?: string;
   status: 'active' | 'completed';
   created_at: string;
   completed_at?: string;
-  check_in?: string;     
-  phone:number;
+  check_in?: string;
+  phone: number;
 }
 
 export interface CreateVisitPayload {
@@ -38,25 +42,24 @@ export interface UpdateVisitPayload {
   notes?: string;
 }
 
-//  Helpers 
-
+// Helpers
 async function handleResponse<T>(res: Response): Promise<T> {
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || data.message || `Request failed: ${res.status}`);
   return data as T;
 }
 
-// API functions 
+// API functions
 
-/** GET /visits — fetch all visits  */
+/** GET /visits */
 export async function fetchVisits(): Promise<Visit[]> {
   const res = await fetch(`${BASE_URL}/visits`, { headers: getHeaders() });
   return handleResponse<Visit[]>(res);
 }
 
 /** GET /visits/active */
-export async function fetchActiveVisits(headers: { 'Content-Type': string; Authorization: string; }): Promise<Visit[]> {
-  const res = await fetch(`${BASE_URL}/visits/active`, { headers });
+export async function fetchActiveVisits(): Promise<Visit[]> {
+  const res = await fetch(`${BASE_URL}/visits/active`, { headers: getHeaders() });
   return handleResponse<Visit[]>(res);
 }
 
@@ -101,7 +104,7 @@ export async function updateVisit(id: number, payload: UpdateVisitPayload): Prom
   return handleResponse<Visit>(res);
 }
 
-/** DELETE /visits/:id (admin only) */
+/** DELETE /visits/:id */
 export async function deleteVisit(id: number): Promise<void> {
   const res = await fetch(`${BASE_URL}/visits/${id}`, {
     method: 'DELETE',
