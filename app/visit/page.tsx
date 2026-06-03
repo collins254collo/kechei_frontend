@@ -63,10 +63,27 @@ export default function VisitsPage() {
   const [checkOutId, setCheckOutId] = useState<number | null>(null);
   const [mounted, setMounted]       = useState(false);
 
-  // Form state — includes reason (required by backend)
   const [submitting, setSubmitting] = useState(false);
   const [formErr, setFormErr]       = useState('');
-  const [form, setForm] = useState({ client_id: '', reason: '', notes: '', room_number: '' });
+const [form, setForm] = useState({
+  isGroup: false,
+  groupName: '',
+  reason: '',
+  notes: '',
+  // Single visit fields
+  client_id: '',
+  room_number: '',
+});
+
+// Group members: each has a client + room
+const [groupMembers, setGroupMembers] = useState([
+  { client_id: '', room_number: '' }
+]);
+
+const addMember = () => setGroupMembers(m => [...m, { client_id: '', room_number: '' }]);
+const removeMember = (i: number) => setGroupMembers(m => m.filter((_, idx) => idx !== i));
+const updateMember = (i: number, field: string, value: string) =>
+  setGroupMembers(m => m.map((mem, idx) => idx === i ? { ...mem, [field]: value } : mem));
 
   // ── Load visits + clients ──
   const load = () => {
@@ -109,7 +126,7 @@ export default function VisitsPage() {
     return matchFilter && matchSearch;
   });
 
-  // ── Stats ──
+  //  Stats
   const activeCount    = visits.filter(v => v.status === 'active').length;
   const completedCount = visits.filter(v => v.status === 'completed').length;
   const todayCount     = visits.filter(v =>
@@ -130,13 +147,51 @@ export default function VisitsPage() {
   };
 
   //  Create visit 
-  const handleSubmit = async () => {
-    if (!form.client_id)     { setFormErr('Please select a client.'); return; }
-    if (!form.reason.trim()) { setFormErr('Please enter a reason for the visit.'); return; }
+ const handleSubmit = async () => {
+  setFormErr('');
+
+  if (!form.reason.trim()) {
+    setFormErr('Please enter a reason for the visit.');
+    return;
+  }
+
+  if (form.isGroup) {
+    // Validate all members have a client selected
+    const invalid = groupMembers.some(m => !m.client_id);
+    if (invalid) { setFormErr('Please select a client for each member.'); return; }
+    if (groupMembers.length < 2) { setFormErr('A group visit needs at least 2 members.'); return; }
+
     setSubmitting(true);
-    setFormErr('');
     try {
-     const data = await createVisit({
+      // Create one visit per member, all sharing the same reason/notes/groupName
+      const results = await Promise.all(
+        groupMembers.map(member =>
+          createVisit({
+            client_id:   Number(member.client_id),
+            reason:      form.isGroup && form.groupName
+                           ? `[${form.groupName}] ${form.reason}`
+                           : form.reason,
+            room_number: member.room_number || undefined,
+            notes:       form.notes || undefined,
+          })
+        )
+      );
+      setVisits(prev => [...(results as Visit[]), ...prev]);
+      setShowModal(false);
+      setForm({ isGroup: false, groupName: '', reason: '', notes: '', client_id: '', room_number: '' });
+      setGroupMembers([{ client_id: '', room_number: '' }]);
+    } catch (err: any) {
+      setFormErr(err.message || 'One or more check-ins failed.');
+    } finally {
+      setSubmitting(false);
+    }
+
+  } else {
+    // Single visit — existing logic
+    if (!form.client_id) { setFormErr('Please select a client.'); return; }
+    setSubmitting(true);
+    try {
+      const data = await createVisit({
         client_id:   Number(form.client_id),
         reason:      form.reason,
         room_number: form.room_number || undefined,
@@ -144,13 +199,14 @@ export default function VisitsPage() {
       });
       setVisits(prev => [data as Visit, ...prev]);
       setShowModal(false);
-      setForm({ client_id: '', reason: '', notes: '', room_number: '' });
+      setForm({ isGroup: false, groupName: '', reason: '', notes: '', client_id: '', room_number: '' });
     } catch (err: any) {
       setFormErr(err.message || 'Network error. Try again.');
     } finally {
       setSubmitting(false);
     }
-  };
+  }
+};
 
   const statusColor = (s: string) => s === 'active' ? 'var(--badge-amber-tx)' : 'var(--badge-green-tx)';
   const statusBg    = (s: string) => s === 'active' ? 'var(--badge-amber-bg)' : 'var(--badge-green-bg)';
@@ -639,24 +695,51 @@ export default function VisitsPage() {
               </button>
             </div>
 
-            <div className="db-modal-body">
+           <div className="db-modal-body">
 
-              {/* Client */}
-              <div className="db-field">
-                <label className="db-label">Client *</label>
-                <select
-                  className="db-select"
-                  value={form.client_id}
-                  onChange={e => setForm(f => ({ ...f, client_id: e.target.value }))}
+              {/* Group toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '10px 14px', background: 'var(--surface-2)',
+                borderRadius: '8px', border: '1px solid var(--border)' }}>
+                <div>
+                  <div style={{ fontSize: '12px', color: 'var(--text)', fontWeight: 500 }}>Group visit</div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-3)', marginTop: '2px' }}>
+                    Multiple clients checking in together
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, isGroup: !f.isGroup }))}
+                  style={{
+                    width: '40px', height: '22px', borderRadius: '99px', border: 'none',
+                    cursor: 'pointer', position: 'relative', transition: 'background 0.2s',
+                    background: form.isGroup ? 'var(--accent)' : 'var(--border)',
+                    flexShrink: 0,
+                  }}
                 >
-                  <option value="">Select a client…</option>
-                  {clients.map(c => (
-                    <option key={c.id} value={c.id}>{c.full_name} — {c.phone}</option>
-                  ))}
-                </select>
+                  <span style={{
+                    position: 'absolute', top: '3px',
+                    left: form.isGroup ? '21px' : '3px',
+                    width: '16px', height: '16px', borderRadius: '50%',
+                    background: '#fff', transition: 'left 0.2s',
+                  }} />
+                </button>
               </div>
 
-              {/* Reason — required by backend */}
+              {/* Group name — shown when group is on */}
+              {form.isGroup && (
+                <div className="db-field">
+                  <label className="db-label">Group name (optional)</label>
+                  <input
+                    className="db-input"
+                    placeholder="e.g. Adidas Group, Safari Team…"
+                    value={form.groupName}
+                    onChange={e => setForm(f => ({ ...f, groupName: e.target.value }))}
+                  />
+                </div>
+              )}
+
+              {/* Reason — always shown */}
               <div className="db-field">
                 <label className="db-label">Reason *</label>
                 <input
@@ -666,15 +749,98 @@ export default function VisitsPage() {
                   onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
                 />
               </div>
-              <div className="db-field">
-                <label className="db-label">Room number *</label>
-                <input
-                  className="db-input"
-                  placeholder="e.g. Tokyo, Las Vegaz, Cabin 4…"
-                  value={form.room_number}
-                  onChange={e => setForm(f => ({ ...f, room_number: e.target.value }))}
-                />
-              </div>
+
+              {/* Single visit fields */}
+              {!form.isGroup && (
+                <>
+                  <div className="db-field">
+                    <label className="db-label">Client *</label>
+                    <select
+                      className="db-select"
+                      value={form.client_id}
+                      onChange={e => setForm(f => ({ ...f, client_id: e.target.value }))}
+                    >
+                      <option value="">Select a client…</option>
+                      {clients.map(c => (
+                        <option key={c.id} value={c.id}>{c.full_name} — {c.phone}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="db-field">
+                    <label className="db-label">Room number</label>
+                    <input
+                      className="db-input"
+                      placeholder="e.g. Room 4, Cabin B…"
+                      value={form.room_number}
+                      onChange={e => setForm(f => ({ ...f, room_number: e.target.value }))}
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Group members — each with client + room */}
+              {form.isGroup && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <label className="db-label" style={{ margin: 0 }}>
+                      Members ({groupMembers.length})
+                    </label>
+                    <button
+                      type="button"
+                      onClick={addMember}
+                      style={{
+                        fontSize: '10px', color: 'var(--accent)', background: 'none',
+                        border: 'none', cursor: 'pointer', letterSpacing: '0.06em',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      + Add member
+                    </button>
+                  </div>
+
+                  {groupMembers.map((member, i) => (
+                    <div key={i} style={{
+                      display: 'grid', gridTemplateColumns: '1fr 1fr auto',
+                      gap: '8px', alignItems: 'center',
+                      padding: '10px', background: 'var(--surface-2)',
+                      borderRadius: '8px', border: '1px solid var(--border)',
+                    }}>
+                      <select
+                        className="db-select"
+                        style={{ padding: '8px 10px', fontSize: '11px' }}
+                        value={member.client_id}
+                        onChange={e => updateMember(i, 'client_id', e.target.value)}
+                      >
+                        <option value="">Select client…</option>
+                        {clients.map(c => (
+                          <option key={c.id} value={c.id}>{c.full_name}</option>
+                        ))}
+                      </select>
+                      <input
+                        className="db-input"
+                        style={{ padding: '8px 10px', fontSize: '11px' }}
+                        placeholder="Room (optional)"
+                        value={member.room_number}
+                        onChange={e => updateMember(i, 'room_number', e.target.value)}
+                      />
+                      {groupMembers.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeMember(i)}
+                          style={{
+                            background: 'none', border: 'none', cursor: 'pointer',
+                            color: 'var(--text-3)', fontSize: '16px', lineHeight: 1,
+                            padding: '4px',
+                          }}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Notes */}
               <div className="db-field">
                 <label className="db-label">Notes (optional)</label>
@@ -687,8 +853,11 @@ export default function VisitsPage() {
               </div>
 
               {/* Check-in time */}
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '10px 12px', background: 'var(--surface-2)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                <svg width="13" height="13" fill="none" stroke="var(--text-3)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center',
+                padding: '10px 12px', background: 'var(--surface-2)',
+                borderRadius: '8px', border: '1px solid var(--border)' }}>
+                <svg width="13" height="13" fill="none" stroke="var(--text-3)" strokeWidth="1.8"
+                  strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
                   <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
                 </svg>
                 <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>
