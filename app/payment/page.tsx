@@ -205,7 +205,7 @@ export default function PaymentsPage() {
         .db-brand { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; color: #fff; letter-spacing: -0.8px; }
         .db-brand-sub { font-size: 13px; color: #383430; letter-spacing: 0.16em; text-transform: uppercase; margin-top: 3px; }
         .db-nav { flex: 1; padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
-        .db-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; font-size: 22px; color: var(--sidebar-text); cursor: pointer; transition: background 0.15s, color 0.15s; letter-spacing: 0.02em; border: none; background: none; width: 100%; text-align: left; }
+        .db-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; font-size: 18px; color: var(--sidebar-text); cursor: pointer; transition: background 0.15s, color 0.15s; letter-spacing: 0.02em; border: none; background: none; width: 100%; text-align: left; }
         .db-nav-item:hover { background: rgba(255,255,255,0.05); color: #d4cfc8; }
         .db-nav-item.active { background: var(--sidebar-act-bg); color: var(--sidebar-active); }
         .db-nav-item svg { opacity: 0.5; flex-shrink: 0; transition: opacity 0.15s; }

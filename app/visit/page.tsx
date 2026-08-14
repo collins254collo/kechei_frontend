@@ -21,7 +21,7 @@ interface Visit {
   completed_at?: string;
 }
 
-// ── Nav ──
+//  Nav 
 const NAV = [
   { key: 'dashboard', label: 'Dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', href: '/dashboard' },
   { key: 'clients',   label: 'Clients',   icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', href: '/client' },
@@ -70,7 +70,6 @@ const [form, setForm] = useState({
   groupName: '',
   reason: '',
   notes: '',
-  // Single visit fields
   client_id: '',
   room_number: '',
 });
@@ -215,7 +214,7 @@ const updateMember = (i: number, field: string, value: string) =>
     <ProtectedPage>
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
 
         :root {
           --bg:              #ffffff;
@@ -240,33 +239,6 @@ const updateMember = (i: number, field: string, value: string) =>
           --badge-red-bg:    #fdeeed;
           --badge-red-tx:    #b03030;
           --shadow:          0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-        }
-
-        @media (prefers-color-scheme: dark) {
-          :root {
-            --bg:              #0c0c0c;
-            --surface:         #141414;
-            --surface-2:       #1a1a1a;
-            --border:          #222222;
-            --sidebar-bg:      #0e0e0e;
-            --sidebar-border:  #1a1a1a;
-            --sidebar-text:    #4a4a4a;
-            --sidebar-active:  #ffffff;
-            --sidebar-act-bg:  rgba(255,255,255,0.07);
-            --text:            #e0e0e0;
-            --text-2:          #686868;
-            --text-3:          #383838;
-            --accent:          #c9a96e;
-            --accent-h:        #dbbf85;
-            --dot:             rgba(255,255,255,0.04);
-            --badge-green-bg:  rgba(50,180,90,0.1);
-            --badge-green-tx:  #5cc87a;
-            --badge-amber-bg:  rgba(200,160,80,0.1);
-            --badge-amber-tx:  #d4a84a;
-            --badge-red-bg:    rgba(200,70,70,0.1);
-            --badge-red-tx:    #e07070;
-            --shadow:          0 1px 3px rgba(0,0,0,0.3);
-          }
         }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -297,7 +269,7 @@ const updateMember = (i: number, field: string, value: string) =>
         }
         .db-side-head { padding: 28px 20px 24px; border-bottom: 1px solid var(--sidebar-border); }
         .db-brand { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; color: #fff; letter-spacing: -0.8px; }
-        .db-brand-sub { font-size: 9px; color: #383430; letter-spacing: 0.16em; text-transform: uppercase; margin-top: 3px; }
+        .db-brand-sub { font-size: 13px; color: #383430; letter-spacing: 0.16em; text-transform: uppercase; margin-top: 3px; }
 
         .db-nav { flex: 1; padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
         .db-nav-item {
@@ -314,10 +286,10 @@ const updateMember = (i: number, field: string, value: string) =>
         .db-nav-item.active svg { opacity: 1; }
 
         .db-side-foot { padding: 16px 20px; border-top: 1px solid var(--sidebar-border); }
-        .db-user-name { font-size: 12px; color: #706a62; }
-        .db-user-role { font-size: 10px; color: #403c38; margin-top: 2px; text-transform: capitalize; letter-spacing: 0.06em; }
+        .db-user-name { font-size: 16px; color: #706a62; }
+        .db-user-role { font-size: 14px; color: #403c38; margin-top: 2px; text-transform: capitalize; letter-spacing: 0.06em; }
         .db-logout {
-          margin-top: 12px; font-size: 10px; color: #4a4640;
+          margin-top: 12px; font-size: 14px; color: #4a4640;
           background: none; border: none; cursor: pointer;
           letter-spacing: 0.08em; text-transform: uppercase; transition: color 0.15s; padding: 0;
         }
@@ -334,7 +306,7 @@ const updateMember = (i: number, field: string, value: string) =>
           backdrop-filter: blur(8px);
         }
         .db-topbar-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
-        .db-topbar-date { font-size: 14px; color: var(--text-3); letter-spacing: 0.08em; }
+        .db-topbar-date { font-size: 18px; color: var(--text-3); letter-spacing: 0.08em; }
         .db-hamburger { display: none; background: none; border: none; cursor: pointer; color: var(--text); padding: 4px; }
 
         .db-content { padding: 32px; flex: 1; }
@@ -348,9 +320,9 @@ const updateMember = (i: number, field: string, value: string) =>
         }
         .db-stat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent); opacity: 0.4; }
         .db-stat:first-child::before { opacity: 1; }
-        .db-stat-label { font-size: 9px; color: var(--text-2); letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 10px; }
+        .db-stat-label { font-size: 13px; color: var(--text-2); letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 10px; }
         .db-stat-value { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.8px; line-height: 1; }
-        .db-stat-sub { font-size: 10px; color: var(--text-3); margin-top: 6px; }
+        .db-stat-sub { font-size: 14px; color: var(--text-3); margin-top: 6px; }
 
         /* ── Toolbar ── */
         .db-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; animation: db-up 0.5s ease 0.1s both; }
@@ -362,13 +334,13 @@ const updateMember = (i: number, field: string, value: string) =>
           border-radius: 8px; padding: 0 12px; height: 36px;
         }
         .db-search svg { opacity: 0.35; flex-shrink: 0; }
-        .db-search input { border: none; background: none; outline: none; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text); flex: 1; }
+        .db-search input { border: none; background: none; outline: none; font-family: 'DM Mono', monospace; font-size: 16px; color: var(--text); flex: 1; }
         .db-search input::placeholder { color: var(--text-3); }
 
         .db-filters { display: flex; gap: 4px; }
         .db-filter-btn {
           height: 36px; padding: 0 14px; border-radius: 8px;
-          font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.04em;
+          font-family: 'DM Mono', monospace; font-size: 15px; letter-spacing: 0.04em;
           border: 1px solid var(--border); background: var(--surface); color: var(--text-2);
           cursor: pointer; transition: all 0.15s; text-transform: capitalize;
         }
@@ -377,7 +349,7 @@ const updateMember = (i: number, field: string, value: string) =>
 
         .db-btn-primary {
           height: 36px; padding: 0 16px; border-radius: 8px;
-          font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+          font-family: 'DM Mono', monospace; font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase;
           background: var(--accent); color: #fff; border: none;
           cursor: pointer; transition: background 0.15s;
           display: flex; align-items: center; gap: 6px; white-space: nowrap; margin-left: auto;
@@ -388,37 +360,37 @@ const updateMember = (i: number, field: string, value: string) =>
         /* ── Card / Table ── */
         .db-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; animation: db-up 0.5s ease 0.15s both; }
         .db-card-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
-        .db-card-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -0.2px; }
-        .db-card-count { font-size: 10px; color: var(--text-3); letter-spacing: 0.06em; }
+        .db-card-title { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 700; color: var(--text); letter-spacing: -0.2px; }
+        .db-card-count { font-size: 14px; color: var(--text-3); letter-spacing: 0.06em; }
 
         .db-table { width: 100%; border-collapse: collapse; }
-        .db-th { text-align: left; padding: 10px 20px; font-size: 9px; color: var(--text-3); letter-spacing: 0.14em; text-transform: uppercase; border-bottom: 1px solid var(--border); font-weight: 500; }
+        .db-th { text-align: left; padding: 10px 20px; font-size: 13px; color: var(--text-3); letter-spacing: 0.14em; text-transform: uppercase; border-bottom: 1px solid var(--border); font-weight: 500; }
         .db-tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
         .db-tr:last-child { border-bottom: none; }
         .db-tr:hover { background: var(--surface-2); }
-        .db-td { padding: 12px 20px; font-size: 12px; color: var(--text); vertical-align: middle; }
+        .db-td { padding: 12px 20px; font-size: 16px; color: var(--text); vertical-align: middle; }
         .db-td-muted { color: var(--text-2); }
-        .db-td-mono { font-size: 11px; color: var(--text-2); }
+        .db-td-mono { font-size: 15px; color: var(--text-2); }
 
         .db-badge {
           display: inline-flex; align-items: center; gap: 4px;
           padding: 3px 8px; border-radius: 5px;
-          font-size: 10px; font-weight: 500; letter-spacing: 0.04em; text-transform: capitalize;
+          font-size: 14px; font-weight: 500; letter-spacing: 0.04em; text-transform: capitalize;
         }
         .db-badge::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.7; }
 
-        .db-dur { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border); }
+        .db-dur { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 14px; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border); }
 
         .db-checkout {
           height: 28px; padding: 0 10px; border-radius: 6px;
-          font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.04em;
+          font-family: 'DM Mono', monospace; font-size: 14px; letter-spacing: 0.04em;
           background: none; border: 1px solid var(--border); color: var(--text-2);
           cursor: pointer; transition: all 0.15s; white-space: nowrap;
         }
         .db-checkout:hover { border-color: var(--accent); color: var(--accent); }
         .db-checkout:disabled { opacity: 0.4; cursor: not-allowed; }
 
-        .db-empty { padding: 48px 20px; text-align: center; font-size: 12px; color: var(--text-3); }
+        .db-empty { padding: 48px 20px; text-align: center; font-size: 16px; color: var(--text-3); }
 
         @keyframes db-shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
         .db-skel {
@@ -451,10 +423,10 @@ const updateMember = (i: number, field: string, value: string) =>
         .db-modal-foot { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
 
         .db-field { display: flex; flex-direction: column; gap: 6px; }
-        .db-label { font-size: 9px; color: var(--text-2); letter-spacing: 0.14em; text-transform: uppercase; }
+        .db-label { font-size: 13px; color: var(--text-2); letter-spacing: 0.14em; text-transform: uppercase; }
 
         .db-select, .db-input, .db-textarea {
-          font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text);
+          font-family: 'DM Mono', monospace; font-size: 16px; color: var(--text);
           background: var(--surface-2); border: 1px solid var(--border);
           border-radius: 8px; padding: 10px 12px;
           outline: none; width: 100%; transition: border-color 0.15s;
@@ -462,11 +434,11 @@ const updateMember = (i: number, field: string, value: string) =>
         .db-select:focus, .db-input:focus, .db-textarea:focus { border-color: var(--accent); }
         .db-textarea { resize: vertical; min-height: 80px; }
 
-        .db-err { font-size: 11px; color: var(--badge-red-tx); background: var(--badge-red-bg); border-radius: 6px; padding: 8px 12px; }
+        .db-err { font-size: 15px; color: var(--badge-red-tx); background: var(--badge-red-bg); border-radius: 6px; padding: 8px 12px; }
 
         .db-btn-secondary {
           height: 36px; padding: 0 16px; border-radius: 8px;
-          font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.04em;
+          font-family: 'DM Mono', monospace; font-size: 15px; letter-spacing: 0.04em;
           background: none; border: 1px solid var(--border); color: var(--text-2);
           cursor: pointer; transition: all 0.15s;
         }
