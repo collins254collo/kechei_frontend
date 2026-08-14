@@ -819,7 +819,7 @@ export default function InvoicesPage() {
                   disabled={pdfLoading}
                   onClick={() => loadPdfPreview(detailInv)}
                 >
-                  {pdfLoading ? 'Loading…' : 'Preview PDF'}
+                  {pdfLoading ? 'Loading…' : 'Preview INVOICE'}
                 </button>
               ) : (
                 <button
