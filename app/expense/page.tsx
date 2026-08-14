@@ -205,8 +205,8 @@ const load = () => {
 
         .db-main { flex: 1; margin-left: 220px; display: flex; flex-direction: column; position: relative; z-index: 1; min-height: 100vh; }
         .db-topbar { position: sticky; top: 0; z-index: 30; background: var(--bg); border-bottom: 1px solid var(--border); padding: 0 32px; height: 60px; display: flex; align-items: center; justify-content: space-between; backdrop-filter: blur(8px); }
-        .db-topbar-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
-        .db-topbar-date { font-size: 10px; color: var(--text-3); letter-spacing: 0.08em; }
+        .db-topbar-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
+        .db-topbar-date { font-size: 14px; color: var(--text-3); letter-spacing: 0.08em; }
         .db-hamburger { display: none; background: none; border: none; cursor: pointer; color: var(--text); padding: 4px; }
         .db-content { padding: 32px; flex: 1; }
 

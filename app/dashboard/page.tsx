@@ -321,12 +321,12 @@ export default function DashboardPage() {
 
         .db-topbar-title {
           font-family: 'Syne', sans-serif;
-          font-size: 16px; font-weight: 700;
+          font-size: 24px; font-weight: 700;
           color: var(--text); letter-spacing: -0.3px;
         }
 
         .db-topbar-date {
-          font-size: 10px; color: var(--text-3);
+          font-size: 14px; color: var(--text-3);
           letter-spacing: 0.08em;
         }
 

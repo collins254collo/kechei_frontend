@@ -333,8 +333,8 @@ const updateMember = (i: number, field: string, value: string) =>
           display: flex; align-items: center; justify-content: space-between;
           backdrop-filter: blur(8px);
         }
-        .db-topbar-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
-        .db-topbar-date { font-size: 10px; color: var(--text-3); letter-spacing: 0.08em; }
+        .db-topbar-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
+        .db-topbar-date { font-size: 14px; color: var(--text-3); letter-spacing: 0.08em; }
         .db-hamburger { display: none; background: none; border: none; cursor: pointer; color: var(--text); padding: 4px; }
 
         .db-content { padding: 32px; flex: 1; }
