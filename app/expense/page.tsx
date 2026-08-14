@@ -166,10 +166,10 @@ const load = () => {
     <ProtectedPage>
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
 
         :root {
-          --bg: #f2efe9; --surface: #ffffff; --surface-2: #f8f6f2; --border: #e5e0d8;
+          --bg: #ffffff; --surface: #ffffff; --surface-2: #f7f7f7; --border: #e7e7e7;
           --sidebar-bg: #1a1712; --sidebar-border: #2a2620; --sidebar-text: #a09880;
           --sidebar-active: #ffffff; --sidebar-act-bg: rgba(255,255,255,0.08);
           --text: #1a1714; --text-2: #6b6456; --text-3: #b0a898;
@@ -178,20 +178,6 @@ const load = () => {
           --badge-amber-bg: #fef4e4; --badge-amber-tx: #9a6520;
           --badge-red-bg: #fdeeed; --badge-red-tx: #b03030;
           --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-        }
-
-        @media (prefers-color-scheme: dark) {
-          :root {
-            --bg: #0c0c0c; --surface: #141414; --surface-2: #1a1a1a; --border: #222222;
-            --sidebar-bg: #0e0e0e; --sidebar-border: #1a1a1a; --sidebar-text: #4a4a4a;
-            --sidebar-active: #ffffff; --sidebar-act-bg: rgba(255,255,255,0.07);
-            --text: #e0e0e0; --text-2: #686868; --text-3: #383838;
-            --accent: #c9a96e; --accent-h: #dbbf85; --dot: rgba(255,255,255,0.04);
-            --badge-green-bg: rgba(50,180,90,0.1); --badge-green-tx: #5cc87a;
-            --badge-amber-bg: rgba(200,160,80,0.1); --badge-amber-tx: #d4a84a;
-            --badge-red-bg: rgba(200,70,70,0.1); --badge-red-tx: #e07070;
-            --shadow: 0 1px 3px rgba(0,0,0,0.3);
-          }
         }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -205,7 +191,7 @@ const load = () => {
         .db-brand { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; color: #fff; letter-spacing: -0.8px; }
         .db-brand-sub { font-size: 9px; color: #383430; letter-spacing: 0.16em; text-transform: uppercase; margin-top: 3px; }
         .db-nav { flex: 1; padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
-        .db-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; font-size: 12px; color: var(--sidebar-text); cursor: pointer; transition: background 0.15s, color 0.15s; letter-spacing: 0.02em; border: none; background: none; width: 100%; text-align: left; }
+        .db-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; font-size: 18px; color: var(--sidebar-text); cursor: pointer; transition: background 0.15s, color 0.15s; letter-spacing: 0.02em; border: none; background: none; width: 100%; text-align: left; }
         .db-nav-item:hover { background: rgba(255,255,255,0.05); color: #d4cfc8; }
         .db-nav-item.active { background: var(--sidebar-act-bg); color: var(--sidebar-active); }
         .db-nav-item svg { opacity: 0.5; flex-shrink: 0; transition: opacity 0.15s; }
@@ -237,8 +223,8 @@ const load = () => {
 
         .db-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
         .db-card-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
-        .db-card-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -0.2px; }
-        .db-card-count { font-size: 10px; color: var(--text-3); letter-spacing: 0.06em; }
+        .db-card-title { font-family: 'Syne', roboto; font-size: 18px; font-weight: 700; color: var(--text); letter-spacing: -0.2px; }
+        .db-card-count { font-size: 15px; color: var(--text-3); letter-spacing: 0.06em; }
 
         /* toolbar */
         .db-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
@@ -248,28 +234,28 @@ const load = () => {
         .db-search input::placeholder { color: var(--text-3); }
 
         .db-cat-scroll { display: flex; gap: 6px; flex-wrap: wrap; }
-        .db-cat-chip { height: 30px; padding: 0 12px; border-radius: 20px; font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.04em; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; transition: all 0.15s; text-transform: capitalize; white-space: nowrap; }
+        .db-cat-chip { height: 30px; padding: 0 12px; border-radius: 20px; font-family: 'DM Mono', monospace; font-size: 15px; letter-spacing: 0.04em; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; transition: all 0.15s; text-transform: capitalize; white-space: nowrap; }
         .db-cat-chip:hover { color: var(--text); }
         .db-cat-chip.active { color: #fff; border-color: transparent; }
 
-        .db-btn-primary { height: 34px; padding: 0 14px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; background: var(--accent); color: #fff; border: none; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; gap: 6px; white-space: nowrap; margin-left: auto; }
+        .db-btn-primary { height: 34px; padding: 0 14px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; background: var(--accent); color: #fff; border: none; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; gap: 6px; white-space: nowrap; margin-left: auto; }
         .db-btn-primary:hover { background: var(--accent-h); }
 
         .db-table { width: 100%; border-collapse: collapse; }
-        .db-th { text-align: left; padding: 10px 20px; font-size: 9px; color: var(--text-3); letter-spacing: 0.14em; text-transform: uppercase; border-bottom: 1px solid var(--border); font-weight: 500; }
+        .db-th { text-align: left; padding: 10px 20px; font-size: 15px; color: var(--text-3); letter-spacing: 0.14em; text-transform: uppercase; border-bottom: 1px solid var(--border); font-weight: 750; }
         .db-th-r { text-align: right; }
         .db-tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
         .db-tr:last-child { border-bottom: none; }
         .db-tr:hover { background: var(--surface-2); }
-        .db-td { padding: 11px 20px; font-size: 12px; color: var(--text); vertical-align: middle; }
+        .db-td { padding: 11px 20px; font-size: 15px; color: var(--text); vertical-align: middle; }
         .db-td-muted { color: var(--text-2); }
         .db-td-r { text-align: right; }
-        .db-td-mono { font-size: 11px; color: var(--text-2); }
+        .db-td-mono { font-size: 15px; color: var(--text-2); }
 
         .db-cat-dot { display: inline-flex; align-items: center; gap: 6px; }
         .db-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 
-        .db-del-btn { background: none; border: none; cursor: pointer; color: var(--text-3); padding: 4px; border-radius: 4px; transition: color 0.15s, background 0.15s; line-height: 1; }
+        .db-del-btn { background: none; border: none; cursor: pointer; color: var(--text-3); padding: 8px; border-radius: 4px; transition: color 0.15s, background 0.15s; line-height: 1; }
         .db-del-btn:hover { color: var(--badge-red-tx); background: var(--badge-red-bg); }
         .db-del-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
@@ -278,10 +264,10 @@ const load = () => {
         /* category breakdown bars */
         .db-expbar { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
         .db-expbar:last-child { border-bottom: none; }
-        .db-expbar-cat { width: 90px; font-size: 11px; color: var(--text-2); text-transform: capitalize; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .db-expbar-track { flex: 1; height: 5px; background: var(--border); border-radius: 99px; overflow: hidden; }
+        .db-expbar-cat { width: 90px; font-size: 15px; color: var(--text-2); text-transform: capitalize; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .db-expbar-track { flex: 1; height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; }
         .db-expbar-fill { height: 100%; border-radius: 99px; transition: width 0.7s cubic-bezier(0.16,1,0.3,1); }
-        .db-expbar-val { font-size: 11px; color: var(--text-2); width: 88px; text-align: right; flex-shrink: 0; }
+        .db-expbar-val { font-size: 15px; color: var(--text-2); width: 88px; text-align: right; flex-shrink: 0; }
 
         @keyframes db-shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
         .db-skel { background: linear-gradient(90deg, var(--border) 25%, var(--surface-2) 50%, var(--border) 75%); background-size: 800px 100%; animation: db-shimmer 1.4s infinite; border-radius: 4px; height: 12px; }
@@ -452,11 +438,11 @@ const load = () => {
                               <span style={{ textTransform: 'capitalize' }}>{exp.category}</span>
                             </span>
                           </td>
-                          <td className="db-td db-td-muted" style={{ fontSize: '11px' }}>
+                          <td className="db-td db-td-muted" style={{ fontSize: '15px' }}>
                             {exp.visit_full_name || `Visit #${exp.visit_id}`}
                           </td>
                           <td className="db-td db-td-mono">{fmtDate(exp.expense_date)}</td>
-                          <td className="db-td db-td-r" style={{ fontWeight: 500 }}>{fmt(exp.amount)}</td>
+                          <td className="db-td db-td-r" style={{ fontWeight: 750 }}>{fmt(exp.amount)}</td>
                           <td className="db-td" style={{ textAlign: 'right', paddingRight: '16px' }}>
                             <button className="db-del-btn" disabled={deleteId === exp.id} onClick={() => handleDelete(exp.id)} title="Delete">
                               {deleteId === exp.id
@@ -495,7 +481,7 @@ const load = () => {
                       </div>
                     ))}
                     <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ fontSize: '10px', color: 'var(--text-3)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Grand total</div>
+                      <div style={{ fontSize: '15px', color: 'var(--text-3)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Grand total</div>
                       <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '16px', fontWeight: 700, color: 'var(--accent)', letterSpacing: '-0.4px' }}>{fmt(totalAll)}</div>
                     </div>
                   </div>

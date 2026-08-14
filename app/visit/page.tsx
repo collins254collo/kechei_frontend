@@ -85,7 +85,7 @@ const removeMember = (i: number) => setGroupMembers(m => m.filter((_, idx) => id
 const updateMember = (i: number, field: string, value: string) =>
   setGroupMembers(m => m.map((mem, idx) => idx === i ? { ...mem, [field]: value } : mem));
 
-  // ── Load visits + clients ──
+  //  Load visits + clients
   const load = () => {
     setLoading(true);
     // const headers = () => {
@@ -218,10 +218,10 @@ const updateMember = (i: number, field: string, value: string) =>
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&display=swap');
 
         :root {
-          --bg:              #f2efe9;
+          --bg:              #ffffff;
           --surface:         #ffffff;
-          --surface-2:       #f8f6f2;
-          --border:          #e5e0d8;
+          --surface-2:       #f7f7f7;
+          --border:          #e7e7e7;
           --sidebar-bg:      #1a1712;
           --sidebar-border:  #2a2620;
           --sidebar-text:    #a09880;
@@ -303,7 +303,7 @@ const updateMember = (i: number, field: string, value: string) =>
         .db-nav-item {
           display: flex; align-items: center; gap: 10px;
           padding: 9px 12px; border-radius: 8px;
-          font-size: 12px; color: var(--sidebar-text);
+          font-size: 18px; color: var(--sidebar-text);
           cursor: pointer; transition: background 0.15s, color 0.15s;
           letter-spacing: 0.02em; border: none; background: none; width: 100%; text-align: left;
         }

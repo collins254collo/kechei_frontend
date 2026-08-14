@@ -6,7 +6,7 @@ import { fetchPayments, createPayment, deletePayment } from '../API/paymentApi';
 import { fetchInvoices } from '../API/invoiceApi';
 import ProtectedPage from '../protectedPage';
 
-// ── Types ──
+//  Types 
 interface User    { id: number; name: string; email: string; role: string; }
 interface Invoice {
   id: number;
@@ -48,15 +48,6 @@ const METHOD_COLORS: Record<string, { bg: string; tx: string }> = {
   other:           { bg: '#f2f2f2', tx: '#606060' },
 };
 
-const METHOD_COLORS_DARK: Record<string, { bg: string; tx: string }> = {
-  cash:            { bg: 'rgba(50,180,90,0.12)',  tx: '#5cc87a' },
-  mpesa:           { bg: 'rgba(30,160,70,0.12)',  tx: '#4dba60' },
-  'bank transfer': { bg: 'rgba(80,130,220,0.12)', tx: '#7aaaf0' },
-  card:            { bg: 'rgba(130,80,210,0.12)', tx: '#b080f0' },
-  cheque:          { bg: 'rgba(200,160,80,0.12)', tx: '#d4a84a' },
-  other:           { bg: 'rgba(120,120,120,0.12)',tx: '#909090' },
-};
-
 function fmt(n: number) { return `KES ${Number(n).toLocaleString()}`; }
 function fmtDate(d: string) {
   if (!d) return '—';
@@ -77,7 +68,6 @@ export default function PaymentsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formErr, setFormErr]     = useState('');
   const [deleteId, setDeleteId]   = useState<number | null>(null);
-  const [darkMode, setDarkMode]   = useState(false);
 
   const [form, setForm] = useState({
     invoice_id: '', amount_paid: '', method: '', payment_date: new Date().toISOString().split('T')[0], reference: '', notes: '',
@@ -103,21 +93,14 @@ export default function PaymentsPage() {
     setMounted(true);
     const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
     if (stored) setUser(JSON.parse(stored));
-    // detect dark mode
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    setDarkMode(mq.matches);
-    mq.addEventListener('change', e => setDarkMode(e.matches));
     load();
   }, []);
 
   const logout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); router.push('/login'); };
 
-  const methodColors = (m: string) => {
-    const map = darkMode ? METHOD_COLORS_DARK : METHOD_COLORS;
-    return map[m] || map.other;
-  };
+  const methodColors = (m: string) => METHOD_COLORS[m] || METHOD_COLORS.other;
 
-  // ── Derived ──
+  //  Derived 
   const filtered = payments.filter(p => {
     const matchMethod = methodFilter === 'all' || p.method === methodFilter;
     const q = search.toLowerCase();
@@ -150,7 +133,7 @@ export default function PaymentsPage() {
   const alreadyPaid = payments.filter(p => p.invoice_id === Number(form.invoice_id)).reduce((s, p) => s + Number(p.amount_paid), 0);
   const balance = selectedInvoice ? Number(selectedInvoice.total_amount) - alreadyPaid : 0;
 
-  // ── Submit ──
+  //  Submit 
   const handleSubmit = async () => {
     if (!form.invoice_id) { setFormErr('Please select an invoice.'); return; }
     if (!form.method)     { setFormErr('Please select a payment method.'); return; }
@@ -196,10 +179,10 @@ export default function PaymentsPage() {
     <ProtectedPage>
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&display=swap');
+       @import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
 
         :root {
-          --bg: #f2efe9; --surface: #ffffff; --surface-2: #f8f6f2; --border: #e5e0d8;
+          --bg: #ffffff; --surface: #ffffff; --surface-2: #f7f7f7; --border: #e7e7e7;
           --sidebar-bg: #1a1712; --sidebar-border: #2a2620; --sidebar-text: #a09880;
           --sidebar-active: #ffffff; --sidebar-act-bg: rgba(255,255,255,0.08);
           --text: #1a1714; --text-2: #6b6456; --text-3: #b0a898;
@@ -208,20 +191,6 @@ export default function PaymentsPage() {
           --badge-amber-bg: #fef4e4; --badge-amber-tx: #9a6520;
           --badge-red-bg: #fdeeed; --badge-red-tx: #b03030;
           --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-        }
-
-        @media (prefers-color-scheme: dark) {
-          :root {
-            --bg: #0c0c0c; --surface: #141414; --surface-2: #1a1a1a; --border: #222222;
-            --sidebar-bg: #0e0e0e; --sidebar-border: #1a1a1a; --sidebar-text: #4a4a4a;
-            --sidebar-active: #ffffff; --sidebar-act-bg: rgba(255,255,255,0.07);
-            --text: #e0e0e0; --text-2: #686868; --text-3: #383838;
-            --accent: #c9a96e; --accent-h: #dbbf85; --dot: rgba(255,255,255,0.04);
-            --badge-green-bg: rgba(50,180,90,0.1); --badge-green-tx: #5cc87a;
-            --badge-amber-bg: rgba(200,160,80,0.1); --badge-amber-tx: #d4a84a;
-            --badge-red-bg: rgba(200,70,70,0.1); --badge-red-tx: #e07070;
-            --shadow: 0 1px 3px rgba(0,0,0,0.3);
-          }
         }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -234,24 +203,24 @@ export default function PaymentsPage() {
         .db-side { width: 220px; flex-shrink: 0; background: var(--sidebar-bg); border-right: 1px solid var(--sidebar-border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 40; transition: transform 0.28s cubic-bezier(0.16,1,0.3,1); }
         .db-side-head { padding: 28px 20px 24px; border-bottom: 1px solid var(--sidebar-border); }
         .db-brand { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; color: #fff; letter-spacing: -0.8px; }
-        .db-brand-sub { font-size: 9px; color: #383430; letter-spacing: 0.16em; text-transform: uppercase; margin-top: 3px; }
+        .db-brand-sub { font-size: 13px; color: #383430; letter-spacing: 0.16em; text-transform: uppercase; margin-top: 3px; }
         .db-nav { flex: 1; padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
-        .db-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; font-size: 12px; color: var(--sidebar-text); cursor: pointer; transition: background 0.15s, color 0.15s; letter-spacing: 0.02em; border: none; background: none; width: 100%; text-align: left; }
+        .db-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; font-size: 22px; color: var(--sidebar-text); cursor: pointer; transition: background 0.15s, color 0.15s; letter-spacing: 0.02em; border: none; background: none; width: 100%; text-align: left; }
         .db-nav-item:hover { background: rgba(255,255,255,0.05); color: #d4cfc8; }
         .db-nav-item.active { background: var(--sidebar-act-bg); color: var(--sidebar-active); }
         .db-nav-item svg { opacity: 0.5; flex-shrink: 0; transition: opacity 0.15s; }
         .db-nav-item.active svg, .db-nav-item:hover svg { opacity: 1; }
         .db-side-foot { padding: 16px 20px; border-top: 1px solid var(--sidebar-border); }
-        .db-user-name { font-size: 12px; color: #706a62; }
-        .db-user-role { font-size: 10px; color: #403c38; margin-top: 2px; text-transform: capitalize; letter-spacing: 0.06em; }
-        .db-logout { margin-top: 12px; font-size: 10px; color: #4a4640; background: none; border: none; cursor: pointer; letter-spacing: 0.08em; text-transform: uppercase; transition: color 0.15s; padding: 0; }
+        .db-user-name { font-size: 15px; color: #706a62; }
+        .db-user-role { font-size: 14px; color: #403c38; margin-top: 2px; text-transform: capitalize; letter-spacing: 0.06em; }
+        .db-logout { margin-top: 12px; font-size: 14px; color: #4a4640; background: none; border: none; cursor: pointer; letter-spacing: 0.08em; text-transform: uppercase; transition: color 0.15s; padding: 0; }
         .db-logout:hover { color: #c9a96e; }
 
         /* ── Main ── */
         .db-main { flex: 1; margin-left: 220px; display: flex; flex-direction: column; position: relative; z-index: 1; min-height: 100vh; }
         .db-topbar { position: sticky; top: 0; z-index: 30; background: var(--bg); border-bottom: 1px solid var(--border); padding: 0 32px; height: 60px; display: flex; align-items: center; justify-content: space-between; backdrop-filter: blur(8px); }
-        .db-topbar-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
-        .db-topbar-date { font-size: 10px; color: var(--text-3); letter-spacing: 0.08em; }
+        .db-topbar-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
+        .db-topbar-date { font-size: 14px; color: var(--text-3); letter-spacing: 0.08em; }
         .db-hamburger { display: none; background: none; border: none; cursor: pointer; color: var(--text); padding: 4px; }
         .db-content { padding: 32px; flex: 1; }
 
@@ -260,9 +229,9 @@ export default function PaymentsPage() {
         .db-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; box-shadow: var(--shadow); position: relative; overflow: hidden; }
         .db-stat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent); opacity: 0.4; }
         .db-stat:first-child::before { opacity: 1; }
-        .db-stat-label { font-size: 9px; color: var(--text-2); letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 10px; }
-        .db-stat-value { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.8px; line-height: 1; }
-        .db-stat-sub { font-size: 10px; color: var(--text-3); margin-top: 6px; }
+        .db-stat-label { font-size: 13px; color: var(--text-2); letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 10px; }
+        .db-stat-value { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 700; color: var(--text); letter-spacing: -0.8px; line-height: 1; }
+        .db-stat-sub { font-size: 14px; color: var(--text-3); margin-top: 6px; }
 
         /* ── Layout ── */
         .db-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; animation: db-up 0.5s ease 0.1s both; }
@@ -270,68 +239,68 @@ export default function PaymentsPage() {
         /* ── Card ── */
         .db-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
         .db-card-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
-        .db-card-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -0.2px; }
-        .db-card-count { font-size: 10px; color: var(--text-3); letter-spacing: 0.06em; }
+        .db-card-title { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 700; color: var(--text); letter-spacing: -0.2px; }
+        .db-card-count { font-size: 14px; color: var(--text-3); letter-spacing: 0.06em; }
 
         /* ── Toolbar ── */
         .db-toolbar { display: flex; align-items: center; gap: 10px; padding: 14px 20px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
         .db-search { flex: 1; min-width: 160px; max-width: 280px; display: flex; align-items: center; gap: 8px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; height: 34px; }
         .db-search svg { opacity: 0.35; flex-shrink: 0; }
-        .db-search input { border: none; background: none; outline: none; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text); flex: 1; }
+        .db-search input { border: none; background: none; outline: none; font-family: 'DM Mono', monospace; font-size: 16px; color: var(--text); flex: 1; }
         .db-search input::placeholder { color: var(--text-3); }
 
         .db-method-chips { display: flex; gap: 5px; flex-wrap: wrap; }
-        .db-chip { height: 28px; padding: 0 10px; border-radius: 20px; font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.03em; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; transition: all 0.15s; text-transform: capitalize; white-space: nowrap; }
+        .db-chip { height: 28px; padding: 0 10px; border-radius: 20px; font-family: 'DM Mono', monospace; font-size: 14px; letter-spacing: 0.03em; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; transition: all 0.15s; text-transform: capitalize; white-space: nowrap; }
         .db-chip:hover { color: var(--text); }
         .db-chip.active { color: #fff; border-color: transparent; background: var(--accent); }
 
-        .db-btn-primary { height: 34px; padding: 0 14px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; background: var(--accent); color: #fff; border: none; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; gap: 6px; white-space: nowrap; margin-left: auto; }
+        .db-btn-primary { height: 34px; padding: 0 14px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; background: var(--accent); color: #fff; border: none; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; gap: 6px; white-space: nowrap; margin-left: auto; }
         .db-btn-primary:hover { background: var(--accent-h); }
         .db-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
         /* ── Table ── */
         .db-table { width: 100%; border-collapse: collapse; }
-        .db-th { text-align: left; padding: 10px 20px; font-size: 9px; color: var(--text-3); letter-spacing: 0.14em; text-transform: uppercase; border-bottom: 1px solid var(--border); font-weight: 500; }
+        .db-th { text-align: left; padding: 10px 20px; font-size: 13px; color: var(--text-3); letter-spacing: 0.14em; text-transform: uppercase; border-bottom: 1px solid var(--border); font-weight: 500; }
         .db-th-r { text-align: right; }
         .db-tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
         .db-tr:last-child { border-bottom: none; }
         .db-tr:hover { background: var(--surface-2); }
-        .db-td { padding: 12px 20px; font-size: 12px; color: var(--text); vertical-align: middle; }
+        .db-td { padding: 12px 20px; font-size: 16px; color: var(--text); vertical-align: middle; }
         .db-td-muted { color: var(--text-2); }
         .db-td-r { text-align: right; }
-        .db-td-mono { font-size: 11px; color: var(--text-2); }
+        .db-td-mono { font-size: 15px; color: var(--text-2); }
 
         /* Method badge */
-        .db-method-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 5px; font-size: 10px; font-weight: 500; letter-spacing: 0.04em; text-transform: capitalize; }
+        .db-method-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 5px; font-size: 14px; font-weight: 500; letter-spacing: 0.04em; text-transform: capitalize; }
 
         /* Method icon dot */
         .db-method-icon { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.8; flex-shrink: 0; }
 
         /* Invoice number pill */
-        .db-inv-pill { font-family: 'DM Mono', monospace; font-size: 10px; padding: 3px 8px; border-radius: 4px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2); }
+        .db-inv-pill { font-family: 'DM Mono', monospace; font-size: 14px; padding: 3px 8px; border-radius: 4px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2); }
 
         .db-del-btn { background: none; border: none; cursor: pointer; color: var(--text-3); padding: 4px; border-radius: 4px; transition: color 0.15s, background 0.15s; line-height: 1; }
         .db-del-btn:hover { color: var(--badge-red-tx); background: var(--badge-red-bg); }
         .db-del-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-        .db-empty { padding: 48px 20px; text-align: center; font-size: 12px; color: var(--text-3); }
+        .db-empty { padding: 48px 20px; text-align: center; font-size: 16px; color: var(--text-3); }
 
         /* ── Breakdown bars ── */
         .db-expbar { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
         .db-expbar:last-child { border-bottom: none; }
-        .db-expbar-cat { width: 96px; font-size: 11px; text-transform: capitalize; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .db-expbar-cat { width: 96px; font-size: 15px; text-transform: capitalize; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .db-expbar-track { flex: 1; height: 5px; background: var(--border); border-radius: 99px; overflow: hidden; }
         .db-expbar-fill { height: 100%; border-radius: 99px; transition: width 0.7s cubic-bezier(0.16,1,0.3,1); }
-        .db-expbar-val { font-size: 11px; color: var(--text-2); width: 88px; text-align: right; flex-shrink: 0; }
+        .db-expbar-val { font-size: 15px; color: var(--text-2); width: 88px; text-align: right; flex-shrink: 0; }
 
         /* ── Recent activity timeline (right panel bottom) ── */
         .db-timeline { padding: 0 20px 8px; }
         .db-tl-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); position: relative; }
         .db-tl-item:last-child { border-bottom: none; }
         .db-tl-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; margin-top: 4px; }
-        .db-tl-name { font-size: 12px; color: var(--text); font-weight: 500; }
-        .db-tl-meta { font-size: 10px; color: var(--text-3); margin-top: 2px; }
-        .db-tl-amt { font-size: 12px; color: var(--accent); font-weight: 600; margin-left: auto; white-space: nowrap; padding-left: 8px; }
+        .db-tl-name { font-size: 16px; color: var(--text); font-weight: 500; }
+        .db-tl-meta { font-size: 14px; color: var(--text-3); margin-top: 2px; }
+        .db-tl-amt { font-size: 16px; color: var(--accent); font-weight: 600; margin-left: auto; white-space: nowrap; padding-left: 8px; }
 
         @keyframes db-shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
         .db-skel { background: linear-gradient(90deg, var(--border) 25%, var(--surface-2) 50%, var(--border) 75%); background-size: 800px 100%; animation: db-shimmer 1.4s infinite; border-radius: 4px; height: 12px; }
@@ -349,21 +318,21 @@ export default function PaymentsPage() {
         .db-modal-foot { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
         .db-field { display: flex; flex-direction: column; gap: 6px; }
         .db-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .db-label { font-size: 9px; color: var(--text-2); letter-spacing: 0.14em; text-transform: uppercase; }
-        .db-select, .db-input, .db-textarea { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; outline: none; width: 100%; transition: border-color 0.15s; }
+        .db-label { font-size: 13px; color: var(--text-2); letter-spacing: 0.14em; text-transform: uppercase; }
+        .db-select, .db-input, .db-textarea { font-family: 'DM Mono', monospace; font-size: 15px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; outline: none; width: 100%; transition: border-color 0.15s; }
         .db-select:focus, .db-input:focus, .db-textarea:focus { border-color: var(--accent); }
         .db-textarea { resize: vertical; min-height: 68px; }
-        .db-err { font-size: 11px; color: var(--badge-red-tx); }
-        .db-btn-secondary { height: 36px; padding: 0 16px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 11px; background: none; border: 1px solid var(--border); color: var(--text-2); cursor: pointer; transition: all 0.15s; }
+        .db-err { font-size: 15px; color: var(--badge-red-tx); }
+        .db-btn-secondary { height: 36px; padding: 0 16px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 15px; background: none; border: 1px solid var(--border); color: var(--text-2); cursor: pointer; transition: all 0.15s; }
         .db-btn-secondary:hover { color: var(--text); border-color: var(--text-2); }
 
         /* balance info box */
-        .db-balance-box { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); font-size: 11px; color: var(--text-2); }
-        .db-balance-val { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: var(--accent); letter-spacing: -0.3px; }
+        .db-balance-box { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); font-size: 15px; color: var(--text-2); }
+        .db-balance-val { font-family: 'Syne', sans-serif; font-size: 19px; font-weight: 700; color: var(--accent); letter-spacing: -0.3px; }
 
         /* method grid in form */
         .db-method-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-        .db-method-opt { padding: 8px 6px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-2); cursor: pointer; transition: all 0.15s; text-align: center; text-transform: capitalize; }
+        .db-method-opt { padding: 8px 6px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); font-family: 'DM Mono', monospace; font-size: 14px; color: var(--text-2); cursor: pointer; transition: all 0.15s; text-align: center; text-transform: capitalize; }
         .db-method-opt:hover { border-color: var(--accent); color: var(--text); }
         .db-method-opt.selected { border-color: var(--accent); background: var(--accent); color: #fff; }
 

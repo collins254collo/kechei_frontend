@@ -102,19 +102,19 @@ const handleDelete = async (id: number) => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&display=swap');
+       @import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
 
         :root {
-          --bg:             #f2efe9;
+          --bg:             #ffffff;
           --surface:        #ffffff;
-          --surface-2:      #f8f6f2;
-          --border:         #e5e0d8;
+          --surface-2:      #f7f7f7;
+          --border:         #e7e7e7;
           --sidebar-bg:     #1a1712;
           --sidebar-border: #2a2620;
           --sidebar-text:   #a09880;
           --text:           #1a1714;
           --text-2:         #6b6456;
-          --text-3:         #efece8;
+          --text-3:         #1a1712;
           --accent:         #b07a42;
           --accent-h:       #c48d55;
           --shadow:         0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
@@ -122,28 +122,6 @@ const handleDelete = async (id: number) => {
           --err-bg:         rgba(180,50,50,0.06);
           --err-bd:         rgba(180,50,50,0.16);
           --err-tx:         #b03030;
-        }
-
-        @media (prefers-color-scheme: dark) {
-          :root {
-            --bg:             #0c0c0c;
-            --surface:        #141414;
-            --surface-2:      #1a1a1a;
-            --border:         #222222;
-            --sidebar-bg:     #0e0e0e;
-            --sidebar-border: #1a1a1a;
-            --sidebar-text:   #4a4a4a;
-            --text:           #e0e0e0;
-            --text-2:         #686868;
-            --text-3:         #383838;
-            --accent:         #c9a96e;
-            --accent-h:       #dbbf85;
-            --shadow:         0 1px 3px rgba(0,0,0,0.3);
-            --dot:            rgba(255,255,255,0.035);
-            --err-bg:         rgba(200,70,70,0.08);
-            --err-bd:         rgba(200,70,70,0.2);
-            --err-tx:         #e07070;
-          }
         }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -187,7 +165,7 @@ const handleDelete = async (id: number) => {
         .cl-nav-item {
           display:flex; align-items:center; gap:10px;
           padding:9px 12px; border-radius:8px;
-          font-size:12px; color:var(--sidebar-text);
+          font-size:18px; color:var(--sidebar-text);
           cursor:pointer; transition:background 0.15s,color 0.15s;
           letter-spacing:0.02em; border:none; background:none; width:100%; text-align:left;
         }
@@ -256,7 +234,7 @@ const handleDelete = async (id: number) => {
         .cl-search::placeholder { color:var(--text-3); }
         .cl-search:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(176,122,66,0.1); }
 
-        .cl-count { font-size:11px; color:var(--text-3); letter-spacing:0.04em; }
+        .cl-count { font-size:15px; color:var(--text-3); letter-spacing:0.04em; }
 
         /* ── Table card ── */
         .cl-card {
@@ -267,7 +245,7 @@ const handleDelete = async (id: number) => {
         .cl-table { width:100%; border-collapse:collapse; }
         .cl-th {
           text-align:left; padding:11px 20px;
-          font-size:9px; color:var(--text-3);
+          font-size:15px; color:var(--text-3);
           letter-spacing:0.14em; text-transform:uppercase;
           border-bottom:1px solid var(--border); font-weight:500;
         }
@@ -275,7 +253,7 @@ const handleDelete = async (id: number) => {
         .cl-tr:last-child { border-bottom:none; }
         .cl-tr:hover { background:var(--surface-2); }
 
-        .cl-td { padding:13px 20px; font-size:12px; color:var(--text); vertical-align:middle; }
+        .cl-td { padding:13px 20px; font-size:15px; color:var(--text); vertical-align:middle; }
         .cl-td-muted { color:var(--text-2); }
         .cl-td-dim { color:var(--text-3); font-size:11px; }
 
@@ -491,7 +469,7 @@ const handleDelete = async (id: number) => {
                         <td className="cl-td">
                           <div className="cl-name-cell">
                             <div className="cl-avatar" style={{ background: avatarColor(c.full_name) }}>{initials(c.full_name)}</div>
-                            <span style={{ fontWeight: 500 }}>{c.full_name}</span>
+                            <span style={{ fontWeight: 750 }}>{c.full_name}</span>
                           </div>
                         </td>
                         <td className="cl-td cl-td-muted">{c.phone}</td>

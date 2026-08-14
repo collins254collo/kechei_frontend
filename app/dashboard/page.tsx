@@ -60,30 +60,6 @@ export default function DashboardPage() {
   const [active, setActive] = useState('dashboard');
   const [mounted, setMounted] = useState(false);
 
-  // const headers = () => {
-  //   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-  //   return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-  // };
-
-  // const fetchClientDirectly = async (clientId: number) => {
-  //   try {
-  //     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-  //     const response = await fetch(`${API_URL}/clients/${clientId}`, {
-  //       headers: headers()
-  //     });
-      
-  //     if (!response.ok) {
-  //       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-  //     }
-      
-  //     const data = await response.json();
-  //     return data;
-  //   } catch (error) {
-  //     console.error(`Error fetching client ${clientId}:`, error);
-  //     return null;
-  //   }
-  // };
-
   // Enrich visits with client details
  
   const enrichVisitsWithClientDetails = async (rawVisits: Visit[]): Promise<EnrichedVisit[]> => {
@@ -215,14 +191,13 @@ export default function DashboardPage() {
     <ProtectedPage>
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
 
-        /* ── Tokens: Light ── */
         :root {
-          --bg:              #f2efe9;
+          --bg:              #ffffff;
           --surface:         #ffffff;
-          --surface-2:       #f8f6f2;
-          --border:          #e5e0d8;
+          --surface-2:       #f7f7f7;
+          --border:          #e7e7e7;
           --sidebar-bg:      #1a1712;
           --sidebar-border:  #2a2620;
           --sidebar-text:    #a09880;
@@ -230,7 +205,7 @@ export default function DashboardPage() {
           --sidebar-act-bg:  rgba(255,255,255,0.08);
           --text:            #1a1714;
           --text-2:          #6b6456;
-          --text-3:          #b0a898;
+          --text-3:          #1a1714;
           --accent:          #b07a42;
           --accent-h:        #c48d55;
           --dot:             rgba(0,0,0,0.05);
@@ -241,33 +216,6 @@ export default function DashboardPage() {
           --badge-red-bg:    #fdeeed;
           --badge-red-tx:    #b03030;
           --shadow:          0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-        }
-
-        @media (prefers-color-scheme: dark) {
-          :root {
-            --bg:              #0c0c0c;
-            --surface:         #141414;
-            --surface-2:       #1a1a1a;
-            --border:          #222222;
-            --sidebar-bg:      #0e0e0e;
-            --sidebar-border:  #1a1a1a;
-            --sidebar-text:    #4a4a4a;
-            --sidebar-active:  #ffffff;
-            --sidebar-act-bg:  rgba(255,255,255,0.07);
-            --text:            #e0e0e0;
-            --text-2:          #686868;
-            --text-3:          #383838;
-            --accent:          #c9a96e;
-            --accent-h:        #dbbf85;
-            --dot:             rgba(255,255,255,0.04);
-            --badge-green-bg:  rgba(50,180,90,0.1);
-            --badge-green-tx:  #5cc87a;
-            --badge-amber-bg:  rgba(200,160,80,0.1);
-            --badge-amber-tx:  #d4a84a;
-            --badge-red-bg:    rgba(200,70,70,0.1);
-            --badge-red-tx:    #e07070;
-            --shadow:          0 1px 3px rgba(0,0,0,0.3);
-          }
         }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -320,7 +268,7 @@ export default function DashboardPage() {
         .db-nav-item {
           display: flex; align-items: center; gap: 10px;
           padding: 9px 12px; border-radius: 8px;
-          font-size: 12px; color: var(--sidebar-text);
+          font-size: 18px; color: var(--sidebar-text);
           cursor: pointer; transition: background 0.15s, color 0.15s;
           letter-spacing: 0.02em; border: none; background: none; width: 100%; text-align: left;
         }
@@ -357,6 +305,7 @@ export default function DashboardPage() {
           flex: 1; margin-left: 220px;
           display: flex; flex-direction: column;
           position: relative; z-index: 1; min-height: 100vh;
+          background: var(--bg);
         }
 
         /* Top bar */
@@ -461,7 +410,7 @@ export default function DashboardPage() {
         }
 
         .db-card-link {
-          font-size: 10px; color: var(--text-3);
+          font-size: 15px; color: var(--text-3);
           letter-spacing: 0.06em; cursor: pointer;
           transition: color 0.15s; background: none; border: none;
         }
@@ -472,10 +421,10 @@ export default function DashboardPage() {
 
         .db-th {
           text-align: left; padding: 10px 20px;
-          font-size: 9px; color: var(--text-3);
+          font-size: 15px; color: var(--text-3);
           letter-spacing: 0.14em; text-transform: uppercase;
           border-bottom: 1px solid var(--border);
-          font-weight: 500;
+          font-weight: 750;
         }
 
         .db-th-r { text-align: right; }
@@ -486,7 +435,7 @@ export default function DashboardPage() {
 
         .db-td {
           padding: 11px 20px;
-          font-size: 12px; color: var(--text);
+          font-size: 15px; color: var(--text);
           vertical-align: middle;
         }
 
@@ -531,12 +480,12 @@ export default function DashboardPage() {
         .db-expbar:last-child { border-bottom: none; }
 
         .db-expbar-cat {
-          width: 76px; font-size: 11px; color: var(--text-2);
+          width: 76px; font-size: 15px; color: var(--text-2);
           text-transform: capitalize; flex-shrink: 0;
         }
 
         .db-expbar-track {
-          flex: 1; height: 5px; background: var(--border); border-radius: 99px; overflow: hidden;
+          flex: 1; height: 10px; background: var(--border); border-radius: 99px; overflow: hidden;
         }
 
         .db-expbar-fill {
@@ -546,7 +495,7 @@ export default function DashboardPage() {
         }
 
         .db-expbar-val {
-          font-size: 11px; color: var(--text-2); width: 80px;
+          font-size: 15px; color: var(--text-2); width: 80px;
           text-align: right; flex-shrink: 0;
         }
 
@@ -746,7 +695,7 @@ export default function DashboardPage() {
                       );
                     })}
                     <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border)' }}>
-                      <div style={{ fontSize: '10px', color: 'var(--text-3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Outstanding balance</div>
+                      <div style={{ fontSize: '15px', color: 'var(--text-3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Outstanding balance</div>
                       <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '20px', fontWeight: 700, color: 'var(--accent)', letterSpacing: '-0.5px' }}>{fmt(outstanding)}</div>
                     </div>
                   </div>

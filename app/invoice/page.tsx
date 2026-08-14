@@ -287,10 +287,10 @@ export default function InvoicesPage() {
     <ProtectedPage>
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
 
         :root {
-          --bg: #f2efe9; --surface: #ffffff; --surface-2: #f8f6f2; --border: #e5e0d8;
+          --bg: #ffffff; --surface: #ffffff; --surface-2: #f7f7f7; --border: #e7e7e7;
           --sidebar-bg: #1a1712; --sidebar-border: #2a2620; --sidebar-text: #a09880;
           --sidebar-active: #ffffff; --sidebar-act-bg: rgba(255,255,255,0.08);
           --text: #1a1714; --text-2: #6b6456; --text-3: #b0a898;
@@ -299,20 +299,6 @@ export default function InvoicesPage() {
           --badge-amber-bg: #fef4e4; --badge-amber-tx: #9a6520;
           --badge-red-bg: #fdeeed; --badge-red-tx: #b03030;
           --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-        }
-
-        @media (prefers-color-scheme: dark) {
-          :root {
-            --bg: #0c0c0c; --surface: #141414; --surface-2: #1a1a1a; --border: #222222;
-            --sidebar-bg: #0e0e0e; --sidebar-border: #1a1a1a; --sidebar-text: #4a4a4a;
-            --sidebar-active: #ffffff; --sidebar-act-bg: rgba(255,255,255,0.07);
-            --text: #e0e0e0; --text-2: #686868; --text-3: #383838;
-            --accent: #c9a96e; --accent-h: #dbbf85; --dot: rgba(255,255,255,0.04);
-            --badge-green-bg: rgba(50,180,90,0.1); --badge-green-tx: #5cc87a;
-            --badge-amber-bg: rgba(200,160,80,0.1); --badge-amber-tx: #d4a84a;
-            --badge-red-bg: rgba(200,70,70,0.1); --badge-red-tx: #e07070;
-            --shadow: 0 1px 3px rgba(0,0,0,0.3);
-          }
         }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -326,7 +312,7 @@ export default function InvoicesPage() {
         .db-brand { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; color: #fff; letter-spacing: -0.8px; }
         .db-brand-sub { font-size: 9px; color: #383430; letter-spacing: 0.16em; text-transform: uppercase; margin-top: 3px; }
         .db-nav { flex: 1; padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
-        .db-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; font-size: 12px; color: var(--sidebar-text); cursor: pointer; transition: background 0.15s, color 0.15s; letter-spacing: 0.02em; border: none; background: none; width: 100%; text-align: left; }
+        .db-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; font-size: 18px; color: var(--sidebar-text); cursor: pointer; transition: background 0.15s, color 0.15s; letter-spacing: 0.02em; border: none; background: none; width: 100%; text-align: left; }
         .db-nav-item:hover { background: rgba(255,255,255,0.05); color: #d4cfc8; }
         .db-nav-item.active { background: var(--sidebar-act-bg); color: var(--sidebar-active); }
         .db-nav-item svg { opacity: 0.5; flex-shrink: 0; transition: opacity 0.15s; }
@@ -348,33 +334,33 @@ export default function InvoicesPage() {
         .db-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; box-shadow: var(--shadow); position: relative; overflow: hidden; }
         .db-stat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent); opacity: 0.4; }
         .db-stat:first-child::before { opacity: 1; }
-        .db-stat-label { font-size: 9px; color: var(--text-2); letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 10px; }
+        .db-stat-label { font-size: 15px; color: var(--text-2); letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 10px; }
         .db-stat-value { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.8px; line-height: 1; }
-        .db-stat-sub { font-size: 10px; color: var(--text-3); margin-top: 6px; }
+        .db-stat-sub { font-size: 15px; color: var(--text-3); margin-top: 6px; }
 
         .db-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; animation: db-up 0.5s ease 0.1s both; }
         .db-search { flex: 1; min-width: 180px; max-width: 300px; display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; height: 36px; }
         .db-search svg { opacity: 0.35; flex-shrink: 0; }
-        .db-search input { border: none; background: none; outline: none; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text); flex: 1; }
+        .db-search input { border: none; background: none; outline: none; font-family: 'DM Mono', monospace; font-size: 15px; color: var(--text); flex: 1; }
         .db-search input::placeholder { color: var(--text-3); }
         .db-filters { display: flex; gap: 4px; }
-        .db-filter-btn { height: 36px; padding: 0 14px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.04em; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; transition: all 0.15s; text-transform: capitalize; }
+        .db-filter-btn { height: 36px; padding: 0 14px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 15px; letter-spacing: 0.04em; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; transition: all 0.15s; text-transform: capitalize; }
         .db-filter-btn:hover { color: var(--text); }
         .db-filter-btn.active-paid    { background: var(--badge-green-bg); border-color: var(--badge-green-tx); color: var(--badge-green-tx); }
         .db-filter-btn.active-partial { background: var(--badge-amber-bg); border-color: var(--badge-amber-tx); color: var(--badge-amber-tx); }
         .db-filter-btn.active-unpaid  { background: var(--badge-red-bg);   border-color: var(--badge-red-tx);   color: var(--badge-red-tx); }
         .db-filter-btn.active-all     { background: var(--accent); border-color: var(--accent); color: #fff; }
-        .db-btn-primary { height: 36px; padding: 0 16px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; background: var(--accent); color: #fff; border: none; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; gap: 6px; white-space: nowrap; margin-left: auto; }
+        .db-btn-primary { height: 36px; padding: 0 16px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; background: var(--accent); color: #fff; border: none; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; gap: 6px; white-space: nowrap; margin-left: auto; }
         .db-btn-primary:hover { background: var(--accent-h); }
         .db-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
         .db-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; animation: db-up 0.5s ease 0.15s both; }
         .db-card-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
-        .db-card-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -0.2px; }
-        .db-card-count { font-size: 10px; color: var(--text-3); letter-spacing: 0.06em; }
+        .db-card-title { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -0.2px; }
+        .db-card-count { font-size: 15px; color: var(--text-3); letter-spacing: 0.06em; }
 
         .db-table { width: 100%; border-collapse: collapse; }
-        .db-th { text-align: left; padding: 10px 20px; font-size: 9px; color: var(--text-3); letter-spacing: 0.14em; text-transform: uppercase; border-bottom: 1px solid var(--border); font-weight: 500; }
+        .db-th { text-align: left; padding: 10px 20px; font-size: 13px; color: var(--text-3); letter-spacing: 0.14em; text-transform: uppercase; border-bottom: 1px solid var(--border); font-weight: 500; }
         .db-th-r { text-align: right; }
         .db-th-sortable { cursor: pointer; user-select: none; transition: color 0.15s; }
         .db-th-sortable:hover { color: var(--accent); }
@@ -386,22 +372,22 @@ export default function InvoicesPage() {
         .db-td { padding: 12px 20px; font-size: 12px; color: var(--text); vertical-align: middle; }
         .db-td-muted { color: var(--text-2); }
         .db-td-r { text-align: right; }
-        .db-td-mono { font-size: 11px; color: var(--text-2); font-family: 'DM Mono', monospace; }
+        .db-td-mono { font-size: 15px; color: var(--text-2); font-family: 'DM Mono', monospace; }
 
-        .db-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 5px; font-size: 10px; font-weight: 500; letter-spacing: 0.04em; text-transform: capitalize; }
+        .db-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 5px; font-size: 15px; font-weight: 500; letter-spacing: 0.04em; text-transform: capitalize; }
         .db-badge::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.7; }
 
-        .db-overdue { display: inline-flex; align-items: center; gap: 3px; font-size: 9px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--badge-red-tx); margin-top: 3px; }
-        .db-overdue::before { content: '●'; font-size: 7px; }
+        .db-overdue { display: inline-flex; align-items: center; gap: 3px; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--badge-red-tx); margin-top: 3px; }
+        .db-overdue::before { content: '●'; font-size: 10px; }
 
-        .db-mark-btn { height: 26px; padding: 0 10px; border-radius: 6px; font-family: 'DM Mono', monospace; font-size: 10px; background: none; border: 1px solid var(--badge-green-tx); color: var(--badge-green-tx); cursor: pointer; transition: all 0.15s; white-space: nowrap; opacity: 0.7; }
+        .db-mark-btn { height: 26px; padding: 0 10px; border-radius: 6px; font-family: 'DM Mono', monospace; font-size: 15px; background: none; border: 1px solid var(--badge-green-tx); color: var(--badge-green-tx); cursor: pointer; transition: all 0.15s; white-space: nowrap; opacity: 0.7; }
         .db-mark-btn:hover { opacity: 1; background: var(--badge-green-bg); }
         .db-mark-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
         .db-empty { padding: 56px 24px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
         .db-empty-icon { width: 44px; height: 44px; border-radius: 50%; background: var(--surface-2); display: flex; align-items: center; justify-content: center; color: var(--text-3); }
         .db-empty-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: var(--text); }
-        .db-empty-sub { font-size: 11px; color: var(--text-3); max-width: 280px; line-height: 1.6; }
+        .db-empty-sub { font-size: 15px; color: var(--text-3); max-width: 280px; line-height: 1.6; }
 
         @keyframes db-shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
         .db-skel { background: linear-gradient(90deg, var(--border) 25%, var(--surface-2) 50%, var(--border) 75%); background-size: 800px 100%; animation: db-shimmer 1.4s infinite; border-radius: 4px; height: 12px; display: inline-block; }
@@ -420,26 +406,26 @@ export default function InvoicesPage() {
         .db-modal-foot { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; align-items: center; }
         .db-field { display: flex; flex-direction: column; gap: 6px; }
         .db-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .db-label { font-size: 9px; color: var(--text-2); letter-spacing: 0.14em; text-transform: uppercase; }
-        .db-select, .db-input, .db-textarea { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; outline: none; width: 100%; transition: border-color 0.15s; }
+        .db-label { font-size: 14px; color: var(--text-2); letter-spacing: 0.14em; text-transform: uppercase; }
+        .db-select, .db-input, .db-textarea { font-family: 'DM Mono', monospace; font-size: 15px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; outline: none; width: 100%; transition: border-color 0.15s; }
         .db-select:focus, .db-input:focus, .db-textarea:focus { border-color: var(--accent); }
         .db-textarea { resize: vertical; min-height: 72px; }
-        .db-err { font-size: 11px; color: var(--badge-red-tx); background: var(--badge-red-bg); padding: 8px 12px; border-radius: 6px; }
-        .db-btn-secondary { height: 36px; padding: 0 16px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.04em; background: none; border: 1px solid var(--border); color: var(--text-2); cursor: pointer; transition: all 0.15s; }
+        .db-err { font-size: 15px; color: var(--badge-red-tx); background: var(--badge-red-bg); padding: 8px 12px; border-radius: 6px; }
+        .db-btn-secondary { height: 36px; padding: 0 16px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 16px; letter-spacing: 0.04em; background: none; border: 1px solid var(--border); color: var(--text-2); cursor: pointer; transition: all 0.15s; }
         .db-btn-secondary:hover { color: var(--text); border-color: var(--text-2); }
         .db-btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        .db-detail-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+        .db-detail-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 16px; }
         .db-detail-row:last-child { border-bottom: none; }
-        .db-detail-key { color: var(--text-2); font-size: 11px; }
+        .db-detail-key { color: var(--text-2); font-size: 15px; }
         .db-detail-val { color: var(--text); font-weight: 500; text-align: right; }
 
-        .db-inv-number { font-family: 'DM Mono', monospace; font-size: 11px; padding: 4px 10px; border-radius: 5px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2); letter-spacing: 0.04em; }
+        .db-inv-number { font-family: 'DM Mono', monospace; font-size: 15px; padding: 4px 10px; border-radius: 5px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2); letter-spacing: 0.04em; }
 
-        .db-hint { font-size: 10px; color: var(--text-3); padding: 8px 12px; background: var(--surface-2); border-radius: 6px; border: 1px solid var(--border); }
+        .db-hint { font-size: 14px; color: var(--text-3); padding: 8px 12px; background: var(--surface-2); border-radius: 6px; border: 1px solid var(--border); }
 
         .db-preview-box { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; }
-        .db-preview-label { font-size: 9px; color: var(--text-2); letter-spacing: 0.14em; text-transform: uppercase; }
+        .db-preview-label { font-size: 13px; color: var(--text-2); letter-spacing: 0.14em; text-transform: uppercase; }
         .db-preview-value { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: var(--accent); margin-top: 4px; }
 
         .db-pdf-frame { width: 100%; height: 60vh; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
@@ -448,7 +434,7 @@ export default function InvoicesPage() {
         .db-side-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 35; }
 
         .db-toasts { position: fixed; bottom: 20px; right: 20px; z-index: 60; display: flex; flex-direction: column; gap: 8px; max-width: 340px; }
-        .db-toast { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 12px 24px rgba(0,0,0,0.12); font-size: 12px; animation: db-toast-in 0.25s cubic-bezier(0.16,1,0.3,1); }
+        .db-toast { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 12px 24px rgba(0,0,0,0.12); font-size: 15px; animation: db-toast-in 0.25s cubic-bezier(0.16,1,0.3,1); }
         .db-toast-success { border-left: 3px solid var(--badge-green-tx); }
         .db-toast-error { border-left: 3px solid var(--badge-red-tx); }
         .db-toast-icon { flex-shrink: 0; margin-top: 1px; }
@@ -476,7 +462,7 @@ export default function InvoicesPage() {
         }
         @media (max-width: 480px) {
           .db-stats { grid-template-columns: 1fr 1fr; gap: 10px; }
-          .db-stat-value { font-size: 18px; }
+          .db-stat-value { font-size: 20px; }
           .db-field-row { grid-template-columns: 1fr; }
         }
       `}</style>
@@ -853,3 +839,4 @@ export default function InvoicesPage() {
     </ProtectedPage>
   );
 }
+
