@@ -51,6 +51,22 @@ export interface UpdateInvoicePayload {
   notes?: string;
 }
 
+export interface GenerateInvoiceFromClientPayload {
+  client_id: number;
+  due_date?: string;
+  notes?: string;
+}
+
+export interface UnbilledPreview {
+  client_id: number;
+  total_expenses: number;
+}
+
+export interface SendInvoiceResponse {
+  success: boolean;
+  sentTo: string;
+}
+
 // Helper
 async function handleResponse<T>(res: Response): Promise<T> {
   let data: any;
@@ -125,4 +141,47 @@ export async function deleteInvoice(id: number): Promise<void> {
     const data = await res.json();
     throw new Error(data.error || data.message || 'Failed to delete invoice.');
   }
+}
+
+/** GET /invoices/preview/:client_id */
+export async function previewUnbilledByClient(client_id: number): Promise<UnbilledPreview> {
+  const res = await fetch(`${BASE_URL}/invoices/preview/${client_id}`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+  return handleResponse<UnbilledPreview>(res);
+}
+
+/** POST /invoices/generate-from-client */
+export async function generateInvoiceFromClient(payload: GenerateInvoiceFromClientPayload): Promise<Invoice> {
+  const res = await fetch(`${BASE_URL}/invoices/generate-from-client`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse<Invoice>(res);
+}
+
+/* POST /invoices/id/send to client email */
+export async function sendInvoiceToClient(id: number): Promise<SendInvoiceResponse> {
+  const res = await fetch(`${BASE_URL}/invoices/${id}/send`, {
+    method: 'POST',
+    headers: getHeaders(),
+  });
+  return handleResponse<SendInvoiceResponse>(res);
+}
+
+/** GET /invoices/:id/pdf — returns a blob URL for inline preview */
+export async function fetchInvoicePdfUrl(id: number): Promise<string> {
+  const res = await fetch(`${BASE_URL}/invoices/${id}/pdf`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+  if (!res.ok) {
+    let message = `Failed to load PDF (${res.status})`;
+    try { const data = await res.json(); message = data.error || message; } catch {}
+    throw new Error(message);
+  }
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
 }
