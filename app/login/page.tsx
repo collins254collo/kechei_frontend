@@ -70,30 +70,6 @@ useEffect(() => {
           --corner-bd:   #e2ddd6;
         }
 
-        /*  Tokens: Dark */
-        @media (prefers-color-scheme: dark) {
-          :root {
-            --bg:          #0b0b0b;
-            --panel:       #111111;
-            --border:      #1d1d1d;
-            --text:        #e4e4e4;
-            --text-muted:  #e8d0d0;
-            --text-dim:    #e9d9d9;
-            --accent:      #c9a96e;
-            --accent-h:    #dbbf85;
-            --input-bg:    #0b0b0b;
-            --placeholder: #2c2c2c;
-            --grid-dot:    rgba(255,255,255,0.05);
-            --glow:        rgba(201,169,110,0.08);
-            --stat-bg:     rgba(255,255,255,0.02);
-            --err-bg:      rgba(220,80,80,0.07);
-            --err-bd:      rgba(220,80,80,0.18);
-            --err-tx:      #e07878;
-            --ver-tx:      #282828;
-            --footer-tx:   #cdbebe;
-            --corner-bd:   #1d1d1d;
-          }
-        }
 
         /*  Reset  */
         *, *::before, *::after { box-sizing: border-box; }
@@ -360,7 +336,7 @@ useEffect(() => {
             </div>
           </div>
 
-          <div className="kl-ver">v1.0.0</div>
+          <div className="kl-ver">Kechei Centre</div>
         </div>
 
         {/* ── RIGHT ── */}

@@ -289,11 +289,11 @@ export default function DashboardPage() {
           border-top: 1px solid var(--sidebar-border);
         }
 
-        .db-user-name { font-size: 12px; color: #706a62; }
-        .db-user-role { font-size: 10px; color: #403c38; margin-top: 2px; text-transform: capitalize; letter-spacing: 0.06em; }
+        .db-user-name { font-size: 16px; color: #706a62; }
+        .db-user-role { font-size: 14px; color: #403c38; margin-top: 2px; text-transform: capitalize; letter-spacing: 0.06em; }
 
         .db-logout {
-          margin-top: 12px; font-size: 10px; color: #4a4640;
+          margin-top: 12px; font-size: 14px; color: #4a4640;
           background: none; border: none; cursor: pointer;
           letter-spacing: 0.08em; text-transform: uppercase;
           transition: color 0.15s; padding: 0;
@@ -374,7 +374,7 @@ export default function DashboardPage() {
         }
 
         .db-stat-sub {
-          font-size: 10px; color: var(--text-3); margin-top: 6px;
+          font-size: 14px; color: var(--text-3); margin-top: 6px;
         }
 
         /* ── Sections grid ── */
@@ -405,7 +405,7 @@ export default function DashboardPage() {
 
         .db-card-title {
           font-family: 'Syne', sans-serif;
-          font-size: 13px; font-weight: 700;
+          font-size: 17px; font-weight: 700;
           color: var(--text); letter-spacing: -0.2px;
         }
 
