@@ -6,7 +6,7 @@ import { fetchActiveVisits, Visit } from '../API/visitApi';
 import { fetchInvoices } from '../API/invoiceApi';
 import { fetchClientById } from '../API/clientApi';
 import ProtectedPage from '../protectedPage';
-import Image from 'next/image';
+import Sidebar from '../sidebar';
 
 // Types
 interface User { id: number; name: string; email: string; role: string; }
@@ -16,16 +16,6 @@ interface EnrichedVisit extends Visit {
   client_name: string;
   client_phone: string;
 }
-
-// Nav items 
-const NAV = [
-  { key: 'dashboard', label: 'Dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', href: '/dashboard' },
-  { key: 'clients', label: 'Clients', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', href: '/client' },
-  { key: 'visit', label: 'Visits', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', href: '/visit' },
-  { key: 'expenses', label: 'Expenses', icon: 'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z', href: '/expense' },
-  { key: 'invoices', label: 'Invoices', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', href: '/invoice' },
-  { key: 'payments', label: 'Payments', icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z', href: '/payment' },
-];
 
 function fmt(n: number) { return `KES ${Number(n).toLocaleString()}`; }
 
@@ -58,7 +48,6 @@ export default function DashboardPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [sideOpen, setSideOpen] = useState(false);
-  const [active, setActive] = useState('dashboard');
   const [mounted, setMounted] = useState(false);
 
   // Enrich visits with client details
@@ -76,10 +65,7 @@ export default function DashboardPage() {
             // Try using the imported function first
             try {
               client = await fetchClientById(visit.client_id);
-              // console.log(`fetchClientById returned for ${visit.client_id}:`, client);
             } catch (err) {
-              // console.log(`fetchClientById failed, trying direct fetch for ${visit.client_id}`);
-              // client = await fetchClientDirectly(visit.client_id);
             }
             
             if (client) {
@@ -96,8 +82,6 @@ export default function DashboardPage() {
             clientName = client.name || client.full_name || client.client_name || client.fullName || `Client #${visit.client_id}`;
             clientPhone = client.phone || client.phone_number || client.mobile || '—';
           }
-          
-          // console.log(`Visit ${visit.id}: Client name = ${clientName}`);  Debug log
           
           return {
             ...visit,
@@ -524,10 +508,11 @@ export default function DashboardPage() {
         .db-grid-2    { animation: db-up 0.5s ease 0.18s both; }
 
         /* ── Overlay (mobile) ── */
-        .db-overlay {
+        .db-side-overlay {
           display: none; position: fixed; inset: 0;
           background: rgba(0,0,0,0.5); z-index: 35;
         }
+        .db-side-overlay.open { display: block; }
 
         /* ── Responsive ── */
         @media (max-width: 1100px) {
@@ -540,7 +525,6 @@ export default function DashboardPage() {
             transform: translateX(-100%);
           }
           .db-side.open { transform: translateX(0); }
-          .db-overlay.open { display: block; }
           .db-main { margin-left: 0; }
           .db-hamburger { display: flex; }
           .db-stats { grid-template-columns: repeat(2, 1fr); }
@@ -558,44 +542,7 @@ export default function DashboardPage() {
 
       <div className="db-root">
 
-        {/* Sidebar */}
-        <aside className={`db-side ${sideOpen ? 'open' : ''}`}>
-          <div className="db-side-head">
-            <Image src="/kechei.svg" alt="Kechei" width={32} height={32} className="db-logo" />
-            <div className="db-brand-text">
-              <div className="db-brand">Kechei</div>
-              <div className="db-brand-sub">Client Ledger</div>
-            </div>
-          </div>
-
-          <nav className="db-nav">
-            {NAV.map(({ key, label, icon, href }) => (
-              <button
-                key={key}
-                className={`db-nav-item ${active === key ? 'active' : ''}`}
-                onClick={() => {
-                  setActive(key);
-                  setSideOpen(false);
-                  router.push(href);
-                }}
-              >
-                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                  <path d={icon} />
-                </svg>
-                {label}
-              </button>
-            ))}
-          </nav>
-
-          <div className="db-side-foot">
-            <div className="db-user-name">{user?.name || '—'}</div>
-            <div className="db-user-role">{user?.role || 'staff'}</div>
-            <button className="db-logout" onClick={logout}>Sign out</button>
-          </div>
-        </aside>
-
-        {/* Mobile overlay */}
-        <div className={`db-overlay ${sideOpen ? 'open' : ''}`} onClick={() => setSideOpen(false)} />
+        <Sidebar activeKey="dashboard" sideOpen={sideOpen} setSideOpen={setSideOpen} user={user} onLogout={logout} />
 
         {/* Main */}
         <div className="db-main">

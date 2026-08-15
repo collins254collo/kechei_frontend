@@ -3,6 +3,10 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchClients, searchClients, fetchClientById, createClient, updateClient, deleteClient } from '../API/clientApi';
+import ProtectedPage from '../protectedPage';
+import Sidebar from '../sidebar';
+
+interface User { id: number; name: string; email: string; role: string; }
 
 interface Client {
   id: number;
@@ -14,19 +18,11 @@ interface Client {
   created_at: string;
 }
 
-const NAV = [
-  { key: 'dashboard', label: 'Dashboard',  icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', href: '/dashboard' },
-  { key: 'clients',   label: 'Clients',    icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', href: '/client' },
-  { key: 'visit',    label: 'Visits',     icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', href: '/visit' },
-  { key: 'expenses',  label: 'Expenses',   icon: 'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z', href: '/expense' },
-  { key: 'invoices',  label: 'Invoices',   icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', href: '/invoice' },
-  { key: 'payments',  label: 'Payments',   icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z', href: '/payment' },
-];
-
 const EMPTY_FORM = { full_name: '', phone: '', email: '', nationality: '', notes: '' };
 
 export default function ClientsPage() {
   const router = useRouter();
+  const [user, setUser]         = useState<User | null>(null);
   const [clients, setClients]   = useState<Client[]>([]);
   const [filtered, setFiltered] = useState<Client[]>([]);
   const [search, setSearch]     = useState('');
@@ -38,7 +34,13 @@ export default function ClientsPage() {
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState('');
 
-  
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+    if (stored) {
+      try { setUser(JSON.parse(stored)); } catch {}
+    }
+  }, []);
+
   // Fetch All Clients on mount
   useEffect(() => {
     fetchClients()
@@ -87,6 +89,11 @@ const handleDelete = async (id: number) => {
   }
 };
 
+  const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    router.push('/login');
+  };
 
   const openView = (c: Client) => { setSelected(c); setModal('view'); };
   const openCreate = () => { setForm(EMPTY_FORM); setError(''); setModal('create'); };
@@ -100,28 +107,31 @@ const handleDelete = async (id: number) => {
   };
 
   return (
+    <ProtectedPage>
     <>
       <style>{`
        @import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
 
         :root {
-          --bg:             #ffffff;
-          --surface:        #ffffff;
-          --surface-2:      #f7f7f7;
-          --border:         #e7e7e7;
-          --sidebar-bg:     #1a1712;
-          --sidebar-border: #2a2620;
-          --sidebar-text:   #a09880;
-          --text:           #1a1714;
-          --text-2:         #6b6456;
-          --text-3:         #1a1712;
-          --accent:         #b07a42;
-          --accent-h:       #c48d55;
-          --shadow:         0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-          --dot:            rgba(0,0,0,0.045);
-          --err-bg:         rgba(180,50,50,0.06);
-          --err-bd:         rgba(180,50,50,0.16);
-          --err-tx:         #b03030;
+          --bg:              #ffffff;
+          --surface:         #ffffff;
+          --surface-2:       #f7f7f7;
+          --border:          #e7e7e7;
+          --sidebar-bg:      #1a1712;
+          --sidebar-border:  #2a2620;
+          --sidebar-text:    #a09880;
+          --sidebar-active:  #ffffff;
+          --sidebar-act-bg:  rgba(255,255,255,0.08);
+          --text:            #1a1714;
+          --text-2:          #6b6456;
+          --text-3:          #b0a898;
+          --accent:          #b07a42;
+          --accent-h:        #c48d55;
+          --shadow:          0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+          --dot:             rgba(0,0,0,0.045);
+          --err-bg:          rgba(180,50,50,0.06);
+          --err-bd:          rgba(180,50,50,0.16);
+          --err-tx:          #b03030;
         }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -142,51 +152,9 @@ const handleDelete = async (id: number) => {
           background-size: 28px 28px;
         }
 
-        /* ── Sidebar ── */
-        .cl-side {
-          width: 220px; flex-shrink: 0;
-          background: var(--sidebar-bg);
-          border-right: 1px solid var(--sidebar-border);
-          display: flex; flex-direction: column;
-          position: fixed; top: 0; left: 0; bottom: 0; z-index: 40;
-          transition: transform 0.28s cubic-bezier(0.16,1,0.3,1);
-        }
-
-        .cl-side-head {
-          padding: 28px 20px 24px;
-          border-bottom: 1px solid var(--sidebar-border);
-        }
-
-        .cl-brand { font-family: 'Syne',sans-serif; font-weight: 800; font-size: 18px; color:#fff; letter-spacing:-0.8px; }
-        .cl-brand-sub { font-size:9px; color: #9c9690; letter-spacing:0.16em; text-transform:uppercase; margin-top:3px; }
-
-        .cl-nav { flex:1; padding:16px 10px; display:flex; flex-direction:column; gap:2px; overflow-y:auto; }
-
-        .cl-nav-item {
-          display:flex; align-items:center; gap:10px;
-          padding:9px 12px; border-radius:8px;
-          font-size:18px; color:var(--sidebar-text);
-          cursor:pointer; transition:background 0.15s,color 0.15s;
-          letter-spacing:0.02em; border:none; background:none; width:100%; text-align:left;
-        }
-        .cl-nav-item:hover { background:rgba(255,255,255,0.05); color:#d4cfc8; }
-        .cl-nav-item.active { background:rgba(255,255,255,0.08); color:#fff; }
-        .cl-nav-item svg { opacity:0.45; flex-shrink:0; transition:opacity 0.15s; }
-        .cl-nav-item:hover svg { opacity:0.7; }
-        .cl-nav-item.active svg { opacity:1; }
-
-        .cl-side-foot {
-          padding:16px 20px;
-          border-top:1px solid var(--sidebar-border);
-        }
-        .cl-user-name { font-size:12px; color:#706a62; }
-        .cl-user-role { font-size:10px; color:#403c38; margin-top:2px; text-transform:capitalize; letter-spacing:0.06em; }
-        .cl-logout {
-          margin-top:12px; font-size:10px; color:#4a4640;
-          background:none; border:none; cursor:pointer;
-          letter-spacing:0.08em; text-transform:uppercase; transition:color 0.15s; padding:0;
-        }
-        .cl-logout:hover { color:var(--accent); }
+        /* ── Sidebar styling now lives entirely inside the Sidebar component
+           itself (sidebar.tsx) — no need to duplicate .db-side / .db-nav-item
+           / etc here. Only the --sidebar-* variables above are required. ── */
 
         /* ── Main ── */
         .cl-main { flex:1; margin-left:220px; display:flex; flex-direction:column; position:relative; z-index:1; min-height:100vh; }
@@ -362,18 +330,12 @@ const handleDelete = async (id: number) => {
         .cl-detail-key { font-size:10px; color:var(--text-3); letter-spacing:0.1em; text-transform:uppercase; width:100px; flex-shrink:0; padding-top:1px; }
         .cl-detail-val { font-size:12px; color:var(--text); }
 
-        /* Overlay */
-        .cl-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:35; }
-        .cl-overlay.open { display:block; }
-
         /* ── Entrance ── */
         @keyframes cl-up { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
         .cl-content { animation:cl-up 0.4s ease 0.05s both; }
 
         /* ── Responsive ── */
         @media (max-width:768px) {
-          .cl-side { transform:translateX(-100%); }
-          .cl-side.open { transform:translateX(0); }
           .cl-main { margin-left:0; }
           .cl-hamburger { display:flex; }
           .cl-content { padding:20px 16px; }
@@ -386,31 +348,7 @@ const handleDelete = async (id: number) => {
 
       <div className="cl-root">
 
-        {/* Sidebar */}
-        <aside className={`cl-side ${sideOpen ? 'open' : ''}`}>
-          <div className="cl-side-head">
-            <div className="cl-brand">Kechei</div>
-            <div className="cl-brand-sub">Client Ledger</div>
-          </div>
-          <nav className="cl-nav">
-            {NAV.map(({ key, label, icon, href }) => (
-              <button key={key} className={`cl-nav-item ${key === 'clients' ? 'active' : ''}`}
-                onClick={() => { setSideOpen(false); router.push(href); }}>
-                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                  <path d={icon} />
-                </svg>
-                {label}
-              </button>
-            ))}
-          </nav>
-          <div className="cl-side-foot">
-            <div className="cl-user-name">Admin</div>
-            <div className="cl-user-role">admin</div>
-            <button className="cl-logout" onClick={() => router.push('/login')}>Sign out</button>
-          </div>
-        </aside>
-
-        <div className="cl-overlay cl-overlay" style={{ display: sideOpen ? 'block' : 'none' }} onClick={() => setSideOpen(false)} />
+        <Sidebar activeKey="clients" sideOpen={sideOpen} setSideOpen={setSideOpen} user={user} onLogout={logout} />
 
         {/* Main */}
         <div className="cl-main">
@@ -577,5 +515,6 @@ const handleDelete = async (id: number) => {
 
       </div>
     </>
+    </ProtectedPage>
   );
 }
