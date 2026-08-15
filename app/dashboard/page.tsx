@@ -6,6 +6,7 @@ import { fetchActiveVisits, Visit } from '../API/visitApi';
 import { fetchInvoices } from '../API/invoiceApi';
 import { fetchClientById } from '../API/clientApi';
 import ProtectedPage from '../protectedPage';
+import Image from 'next/image';
 
 // Types
 interface User { id: number; name: string; email: string; role: string; }
@@ -247,10 +248,23 @@ export default function DashboardPage() {
           transition: transform 0.28s cubic-bezier(0.16,1,0.3,1);
         }
 
-        .db-side-head {
+       .db-side-head {
           padding: 28px 20px 24px;
           border-bottom: 1px solid var(--sidebar-border);
+          display: flex;
+          align-items: center;
+          gap: 10px;
         }
+
+      .db-logo {
+        flex-shrink: 0;
+        border-radius: 6px;
+      }
+
+      .db-brand-text {
+        display: flex;
+        flex-direction: column;
+      }
 
         .db-brand {
           font-family: 'Syne', sans-serif;
@@ -547,8 +561,11 @@ export default function DashboardPage() {
         {/* Sidebar */}
         <aside className={`db-side ${sideOpen ? 'open' : ''}`}>
           <div className="db-side-head">
-            <div className="db-brand">Kechei</div>
-            <div className="db-brand-sub">Client Ledger</div>
+            <Image src="/kechei.svg" alt="Kechei" width={32} height={32} className="db-logo" />
+            <div className="db-brand-text">
+              <div className="db-brand">Kechei</div>
+              <div className="db-brand-sub">Client Ledger</div>
+            </div>
           </div>
 
           <nav className="db-nav">
