@@ -67,10 +67,6 @@ export default function PaymentsPage() {
     invoice_id: '', amount_paid: '', method: '', payment_date: new Date().toISOString().split('T')[0], reference: '', notes: '',
   });
 
-  // const headers = () => {
-  //   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-  //   return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-  // };
 
   const load = () => {
     setLoading(true);

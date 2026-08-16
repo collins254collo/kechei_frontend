@@ -7,7 +7,7 @@ import { fetchClients } from '../API/clientApi';
 import ProtectedPage from '../protectedPage';
 import Sidebar from '../sidebar';
 
-// ── Types ──
+//  Types 
 interface User { id: number; name: string; email: string; role: string; }
 interface Client { id: number; full_name: string; phone: string; }
 interface Visit {
