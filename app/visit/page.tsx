@@ -23,7 +23,6 @@ interface Visit {
 }
 
 
-
 function fmtDate(d: string) {
   if (!d) return '—';
   return new Date(d).toLocaleString('en-KE', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });

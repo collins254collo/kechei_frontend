@@ -13,8 +13,6 @@ export function useAuthGuard() {
     //    before we try to read and validate the token
     const timer = setTimeout(async () => {
       const token = localStorage.getItem('token');
-      console.log('[useAuthGuard] token from localStorage:', token);
-
       if (!token || token === 'null' || token === 'undefined') {
         setAuthState('unauthorized');
         router.replace('/login');
@@ -22,9 +20,7 @@ export function useAuthGuard() {
       }
 
     try {
-      console.log('[useAuthGuard] Token looks valid, about to call getMe...');
       const me = await getMe();
-      console.log('[useAuthGuard] getMe() success:', me);
       setAuthState('authorized');
     } catch (error: unknown) {
       console.error('[useAuthGuard] getMe() threw:', error);
