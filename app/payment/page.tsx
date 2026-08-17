@@ -17,6 +17,7 @@ interface Invoice {
   status: 'unpaid' | 'partial' | 'paid';
   issued_date: string;
 }
+
 interface Payment {
   id: number;
   invoice_id: number;
@@ -29,14 +30,12 @@ interface Payment {
   notes?: string;
 }
 
-
-
-const METHODS = ['cash', 'mpesa', 'bank transfer', 'card', 'cheque', 'other'];
+const METHODS = ['cash', 'mpesa', 'bank_transfer', 'card', 'cheque', 'other'];
 
 const METHOD_COLORS: Record<string, { bg: string; tx: string }> = {
   cash:            { bg: '#eaf4ee', tx: '#2d7a47' },
   mpesa:           { bg: '#e8f5e4', tx: '#1a7a2e' },
-  'bank transfer': { bg: '#e8f0fb', tx: '#3a5fa0' },
+  bank_transfer:   { bg: '#e8f0fb', tx: '#3a5fa0' },
   card:            { bg: '#f0eafa', tx: '#6a3aaa' },
   cheque:          { bg: '#fef4e4', tx: '#9a6520' },
   other:           { bg: '#f2f2f2', tx: '#606060' },

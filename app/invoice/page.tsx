@@ -23,7 +23,9 @@ interface Invoice {
   client_id: number;
   visit_id?: number;
   full_name: string;
-  total_amount: number;
+  total_amount: number;   
+  final_amount: number;   
+  paid_amount?: number;
   total_expenses: number;
   status: 'unpaid' | 'partial' | 'paid';
   issued_date: string;
@@ -31,7 +33,7 @@ interface Invoice {
   notes?: string;
 }
 type Toast = { id: number; message: string; type: 'success' | 'error' };
-type SortKey = 'issued_date' | 'total_amount';
+type SortKey = 'issued_date' | 'final_amount';
 type SortDir = 'asc' | 'desc';
 
 const STATUS_FILTERS = ['all', 'unpaid', 'partial', 'paid'] as const;
@@ -122,19 +124,19 @@ export default function InvoicesPage() {
       return matchStatus && matchSearch;
     });
     const sorted = [...list].sort((a, b) => {
-      let cmp = 0;
-      if (sortKey === 'issued_date') cmp = new Date(a.issued_date).getTime() - new Date(b.issued_date).getTime();
-      if (sortKey === 'total_amount') cmp = Number(a.total_amount) - Number(b.total_amount);
-      return sortDir === 'asc' ? cmp : -cmp;
-    });
-    return sorted;
+        let cmp = 0;
+        if (sortKey === 'issued_date')  cmp = new Date(a.issued_date).getTime() - new Date(b.issued_date).getTime();
+        if (sortKey === 'final_amount') cmp = Number(a.final_amount) - Number(b.final_amount);
+        return sortDir === 'asc' ? cmp : -cmp;
+      });
+      return sorted;
   }, [invoices, statusFilter, search, sortKey, sortDir]);
 
   const hasAnyInvoices = invoices.length > 0;
   const hasActiveFilters = search.trim() !== '' || statusFilter !== 'all';
 
-  const totalRevenue = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.total_amount), 0);
-  const outstanding  = invoices.filter(i => i.status !== 'paid').reduce((s, i) => s + Number(i.total_amount), 0);
+   const totalRevenue = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.final_amount), 0);
+   const outstanding  = invoices.filter(i => i.status !== 'paid').reduce((s, i) => s + Number(i.final_amount), 0);
   const paidCount    = invoices.filter(i => i.status === 'paid').length;
   const unpaidCount  = invoices.filter(i => i.status === 'unpaid').length;
 
@@ -573,7 +575,7 @@ export default function InvoicesPage() {
                       <th className="db-th">Client</th>
                       <th className="db-th db-th-sortable" onClick={() => toggleSort('issued_date')}>Issued{sortArrow('issued_date')}</th>
                       <th className="db-th">Due</th>
-                      <th className="db-th db-th-r db-th-sortable" onClick={() => toggleSort('total_amount')}>Amount{sortArrow('total_amount')}</th>
+                      <th className="db-th db-th-r db-th-sortable" onClick={() => toggleSort('final_amount')}>Amount{sortArrow('final_amount')}</th>
                       <th className="db-th">Status</th>
                       <th className="db-th" />
                     </tr>
@@ -594,14 +596,14 @@ export default function InvoicesPage() {
                               </div>
                             ) : <span style={{ color: 'var(--text-3)' }}>—</span>}
                           </td>
-                          <td className="db-td db-td-r" style={{ fontWeight: 600 }}>{fmt(inv.total_amount)}</td>
+                          <td className="db-td db-td-r" style={{ fontWeight: 600 }}>{fmt(inv.final_amount)}</td>
                           <td className="db-td">
                             <span className="db-badge" style={{ color: statusColor(inv.status), background: statusBg(inv.status) }}>{inv.status}</span>
                           </td>
                           <td className="db-td" style={{ textAlign: 'right' }} onClick={e => e.stopPropagation()}>
                             {inv.status !== 'paid' && (
                               <button className="db-mark-btn" disabled={markingId === inv.id} onClick={() => markPaid(inv)}>
-                                {markingId === inv.id ? '…' : '✓ Paid'}
+                                {markingId === inv.id ? '…' : ' Paid'}
                               </button>
                             )}
                           </td>
@@ -729,7 +731,7 @@ export default function InvoicesPage() {
                 </span>
                 {detailInv.status !== 'paid' && (
                   <button className="db-mark-btn" disabled={markingId === detailInv.id} onClick={() => markPaid(detailInv)}>
-                    {markingId === detailInv.id ? 'Updating…' : '✓ Mark as paid'}
+                    {markingId === detailInv.id ? 'Updating…' : ' Mark as paid'}
                   </button>
                 )}
               </div>
@@ -737,12 +739,12 @@ export default function InvoicesPage() {
               {!pdfUrl && (
                 <div>
                   <div className="db-detail-row">
-                    <span className="db-detail-key">Client</span>
-                    <span className="db-detail-val">{detailInv.full_name}</span>
+                    <span className="db-detail-key">Subtotal (excl. VAT)</span>
+                    <span className="db-detail-val">{fmt(detailInv.total_amount)}</span>
                   </div>
                   <div className="db-detail-row">
-                    <span className="db-detail-key">Total amount</span>
-                    <span className="db-detail-val" style={{ fontFamily: 'Syne, sans-serif', fontSize: '16px', color: 'var(--accent)' }}>{fmt(detailInv.total_amount)}</span>
+                    <span className="db-detail-key">Total due (incl. VAT)</span>
+                    <span className="db-detail-val" style={{ fontFamily: 'Syne, sans-serif', fontSize: '16px', color: 'var(--accent)' }}>{fmt(detailInv.final_amount)}</span>
                   </div>
                   {detailInv.total_expenses > 0 && (
                     <div className="db-detail-row">

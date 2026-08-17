@@ -21,7 +21,9 @@ export interface Invoice {
   client_id: number;
   visit_id?: number;
   full_name: string;
-  total_amount: number;
+  total_amount: number;  
+  final_amount: number;   
+  paid_amount?: number;
   total_expenses: number;
   status: 'unpaid' | 'partial' | 'paid';
   issued_date: string;
