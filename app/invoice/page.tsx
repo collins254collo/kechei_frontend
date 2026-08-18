@@ -600,13 +600,7 @@ export default function InvoicesPage() {
                           <td className="db-td">
                             <span className="db-badge" style={{ color: statusColor(inv.status), background: statusBg(inv.status) }}>{inv.status}</span>
                           </td>
-                          <td className="db-td" style={{ textAlign: 'right' }} onClick={e => e.stopPropagation()}>
-                            {inv.status !== 'paid' && (
-                              <button className="db-mark-btn" disabled={markingId === inv.id} onClick={() => markPaid(inv)}>
-                                {markingId === inv.id ? '…' : ' Paid'}
-                              </button>
-                            )}
-                          </td>
+                         
                         </tr>
                       );
                     })}
