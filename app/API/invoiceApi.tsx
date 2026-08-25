@@ -25,6 +25,7 @@ export interface Invoice {
   final_amount: number;   
   paid_amount?: number;
   total_expenses: number;
+  description?: string;
   status: 'unpaid' | 'partial' | 'paid';
   issued_date: string;
   due_date?: string;
@@ -58,6 +59,18 @@ export interface GenerateInvoiceFromClientPayload {
   due_date?: string;
   notes?: string;
 }
+
+// Manual invoice — either an existing client_id, or a brand-new client
+// described by name + email (phone optional). Never send both shapes.
+export type CreateManualInvoicePayload = {
+  amount: number;
+  description: string;
+  due_date?: string;
+  notes?: string;
+} & (
+  | { client_id: number; client_name?: never; client_email?: never; client_phone?: never }
+  | { client_id?: never; client_name: string; client_email: string; client_phone?: string }
+);
 
 export interface UnbilledPreview {
   client_id: number;
@@ -154,9 +167,19 @@ export async function previewUnbilledByClient(client_id: number): Promise<Unbill
   return handleResponse<UnbilledPreview>(res);
 }
 
-/** POST /invoices/generate-from-client */
+/** POST /invoices/generate-from-client — bills every unbilled expense for the client */
 export async function generateInvoiceFromClient(payload: GenerateInvoiceFromClientPayload): Promise<Invoice> {
   const res = await fetch(`${BASE_URL}/invoices/generate-from-client`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse<Invoice>(res);
+}
+
+/** POST /invoices/manual — admin-entered amount/description, existing or brand-new client */
+export async function createManualInvoice(payload: CreateManualInvoicePayload): Promise<Invoice> {
+  const res = await fetch(`${BASE_URL}/invoices/manual`, {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify(payload),

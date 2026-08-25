@@ -7,6 +7,7 @@ import {
   updateInvoice,
   previewUnbilledByClient,
   generateInvoiceFromClient,
+  createManualInvoice,
   fetchInvoicePdfUrl,
   sendInvoiceToClient,
 } from '../API/invoiceApi';
@@ -27,6 +28,7 @@ interface Invoice {
   final_amount: number;   
   paid_amount?: number;
   total_expenses: number;
+  description?: string;
   status: 'unpaid' | 'partial' | 'paid';
   issued_date: string;
   due_date?: string;
@@ -35,6 +37,8 @@ interface Invoice {
 type Toast = { id: number; message: string; type: 'success' | 'error' };
 type SortKey = 'issued_date' | 'final_amount';
 type SortDir = 'asc' | 'desc';
+type InvoiceMode = 'auto' | 'manual';
+type ManualClientMode = 'existing' | 'new';
 
 const STATUS_FILTERS = ['all', 'unpaid', 'partial', 'paid'] as const;
 type StatusFilter = typeof STATUS_FILTERS[number];
@@ -45,6 +49,7 @@ function isOverdue(inv: Invoice) {
   if (inv.status === 'paid' || !inv.due_date) return false;
   return new Date(inv.due_date).setHours(23, 59, 59, 999) < Date.now();
 }
+function isValidEmail(email: string) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()); }
 
 export default function InvoicesPage() {
   const router = useRouter();
@@ -64,6 +69,11 @@ export default function InvoicesPage() {
   const [sortKey, setSortKey]     = useState<SortKey>('issued_date');
   const [sortDir, setSortDir]     = useState<SortDir>('desc');
 
+  // New-invoice mode: auto (from unbilled expenses) or manual (admin-entered)
+  const [invMode, setInvMode] = useState<InvoiceMode>('auto');
+  // Manual mode only: bill an existing client, or a freshly typed-in name + email
+  const [manualClientMode, setManualClientMode] = useState<ManualClientMode>('existing');
+
   // Toasts
   const [toasts, setToasts] = useState<Toast[]>([]);
   const pushToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
@@ -73,13 +83,20 @@ export default function InvoicesPage() {
   }, []);
   const dismissToast = (id: number) => setToasts(t => t.filter(x => x.id !== id));
 
-  // New-invoice form — client-only, amount is derived server-side
+  // New-invoice form — client-only, amount is derived server-side (auto mode)
   const [form, setForm] = useState({
     client_id: '', due_date: '', notes: '',
   });
   const [previewAmount, setPreviewAmount] = useState<number | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewErr, setPreviewErr] = useState('');
+
+  // Manual invoice form — admin enters amount + description, and either
+  // picks an existing client or types in a brand-new name + email.
+  const [manualForm, setManualForm] = useState({
+    client_id: '', client_name: '', client_email: '', client_phone: '',
+    amount: '', description: '', due_date: '', notes: '',
+  });
 
   // PDF preview + send state (detail modal)
   const [pdfUrl, setPdfUrl]         = useState<string | null>(null);
@@ -182,14 +199,73 @@ export default function InvoicesPage() {
   };
 
   const resetNewInvoiceForm = () => {
+    setInvMode('auto');
+    setManualClientMode('existing');
     setForm({ client_id: '', due_date: '', notes: '' });
+    setManualForm({ client_id: '', client_name: '', client_email: '', client_phone: '', amount: '', description: '', due_date: '', notes: '' });
     setPreviewAmount(null);
     setPreviewErr('');
     setFormErr('');
   };
 
-  //  Generate invoice (client-based, automatic) 
+  //  New invoice: auto = bill unbilled expenses / manual = admin-entered amount + client 
   const handleSubmit = async () => {
+    if (invMode === 'manual') {
+      if (manualClientMode === 'existing' && !manualForm.client_id) {
+        setFormErr('Please select a client.'); return;
+      }
+      if (manualClientMode === 'new') {
+        if (!manualForm.client_name.trim()) { setFormErr("Please enter the client's name."); return; }
+        if (!manualForm.client_email.trim() || !isValidEmail(manualForm.client_email)) {
+          setFormErr('Please enter a valid email address for this client.'); return;
+        }
+      }
+      const amountNum = Number(manualForm.amount);
+      if (!manualForm.amount || isNaN(amountNum) || amountNum <= 0) {
+        setFormErr('Please enter a valid amount greater than zero.');
+        return;
+      }
+      if (!manualForm.description.trim()) { setFormErr('Please add a short description for this invoice.'); return; }
+
+      setSubmitting(true);
+      setFormErr('');
+      try {
+        const data = await createManualInvoice(
+          manualClientMode === 'existing'
+            ? {
+                client_id: Number(manualForm.client_id),
+                amount: amountNum,
+                description: manualForm.description.trim(),
+                ...(manualForm.due_date && { due_date: manualForm.due_date }),
+                ...(manualForm.notes && { notes: manualForm.notes }),
+              }
+            : {
+                client_name: manualForm.client_name.trim(),
+                client_email: manualForm.client_email.trim(),
+                ...(manualForm.client_phone.trim() && { client_phone: manualForm.client_phone.trim() }),
+                amount: amountNum,
+                description: manualForm.description.trim(),
+                ...(manualForm.due_date && { due_date: manualForm.due_date }),
+                ...(manualForm.notes && { notes: manualForm.notes }),
+              }
+        );
+
+        setInvoices(prev => [data, ...prev]);
+        // A brand-new client now exists as a real record — refresh so it's selectable next time.
+        if (manualClientMode === 'new') {
+          fetchClients().then(setClients).catch(() => {});
+        }
+        setShowModal(false);
+        resetNewInvoiceForm();
+        pushToast(`Invoice ${data.invoice_number} created`, 'success');
+      } catch (err: any) {
+        setFormErr(err.message || 'Network error. Try again.');
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
     if (!form.client_id) { setFormErr('Please select a client.'); return; }
     if (previewAmount === null) { setFormErr('Still checking unbilled expenses — try again in a moment.'); return; }
     if (previewAmount <= 0) { setFormErr('This client has no unbilled expenses to invoice.'); return; }
@@ -423,6 +499,10 @@ export default function InvoicesPage() {
         .db-preview-label { font-size: 13px; color: var(--text-2); letter-spacing: 0.14em; text-transform: uppercase; }
         .db-preview-value { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: var(--accent); margin-top: 4px; }
 
+        .db-mode-toggle { display: flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 3px; }
+        .db-mode-btn { flex: 1; height: 32px; border-radius: 6px; font-family: 'DM Mono', monospace; font-size: 14px; letter-spacing: 0.04em; border: none; background: none; color: var(--text-2); cursor: pointer; transition: all 0.15s; }
+        .db-mode-btn.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); font-weight: 500; }
+
         .db-pdf-frame { width: 100%; height: 60vh; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
         .db-pdf-placeholder { height: 60vh; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border); border-radius: 8px; color: var(--text-3); font-size: 12px; flex-direction: column; gap: 12px; }
 
@@ -562,7 +642,7 @@ export default function InvoicesPage() {
                   ) : (
                     <>
                       <div className="db-empty-title">No invoices yet</div>
-                      <div className="db-empty-sub">Generate your first invoice from a client's unbilled expenses.</div>
+                      <div className="db-empty-sub">Generate your first invoice from a client's unbilled expenses, or create one manually.</div>
                       <button className="db-btn-primary" style={{ margin: 0 }} onClick={() => setShowModal(true)}>New invoice</button>
                     </>
                   )}
@@ -631,7 +711,7 @@ export default function InvoicesPage() {
         ))}
       </div>
 
-      {/* New Invoice Modal — client-only, auto-generated from unbilled expenses */}
+      {/* New Invoice Modal — auto (from unbilled expenses) or manual (admin-entered) */}
       {showModal && (
         <div className="db-overlay" onClick={e => { if (e.target === e.currentTarget) { setShowModal(false); resetNewInvoiceForm(); } }}>
           <div className="db-modal">
@@ -643,63 +723,209 @@ export default function InvoicesPage() {
             </div>
             <div className="db-modal-body">
 
-              <div className="db-field">
-                <label className="db-label">Client *</label>
-                <select
-                  className="db-select"
-                  value={form.client_id}
-                  onChange={e => handleClientSelect(e.target.value)}
+              <div className="db-mode-toggle">
+                <button
+                  className={`db-mode-btn ${invMode === 'auto' ? 'active' : ''}`}
+                  onClick={() => { setInvMode('auto'); setFormErr(''); }}
                 >
-                  <option value="">Select a client…</option>
-                  {clients.map(c => (
-                    <option key={c.id} value={c.id}>{c.full_name} — {c.phone}</option>
-                  ))}
-                </select>
+                  Auto-generate
+                </button>
+                <button
+                  className={`db-mode-btn ${invMode === 'manual' ? 'active' : ''}`}
+                  onClick={() => { setInvMode('manual'); setFormErr(''); }}
+                >
+                  Manual entry
+                </button>
               </div>
 
-              {form.client_id && (
-                <div className="db-preview-box">
-                  <div>
-                    <div className="db-preview-label">Unbilled total</div>
-                    <div className="db-preview-value">
-                      {previewLoading ? '…' : previewAmount !== null ? fmt(previewAmount) : '—'}
+              {invMode === 'auto' ? (
+                <>
+                  <div className="db-field">
+                    <label className="db-label">Client *</label>
+                    <select
+                      className="db-select"
+                      value={form.client_id}
+                      onChange={e => handleClientSelect(e.target.value)}
+                    >
+                      <option value="">Select a client…</option>
+                      {clients.map(c => (
+                        <option key={c.id} value={c.id}>{c.full_name} — {c.phone}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {form.client_id && (
+                    <div className="db-preview-box">
+                      <div>
+                        <div className="db-preview-label">Unbilled total</div>
+                        <div className="db-preview-value">
+                          {previewLoading ? '…' : previewAmount !== null ? fmt(previewAmount) : '—'}
+                        </div>
+                      </div>
+                      {!previewLoading && previewAmount === 0 && (
+                        <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>Nothing to invoice</span>
+                      )}
+                    </div>
+                  )}
+                  {previewErr && <div className="db-err">{previewErr}</div>}
+
+                  <div className="db-field-row">
+                    <div className="db-field">
+                      <label className="db-label">Due date (optional)</label>
+                      <input className="db-input" type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} />
+                    </div>
+                    <div className="db-field">
+                      <label className="db-label">&nbsp;</label>
+                      <div className="db-hint">Amount and issue date are set automatically.</div>
                     </div>
                   </div>
-                  {!previewLoading && previewAmount === 0 && (
-                    <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>Nothing to invoice</span>
+
+                  <div className="db-field">
+                    <label className="db-label">Notes (optional)</label>
+                    <textarea className="db-textarea" placeholder="Payment instructions, terms, or additional notes…" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="db-field">
+                    <label className="db-label">Client</label>
+                    <div className="db-mode-toggle">
+                      <button
+                        className={`db-mode-btn ${manualClientMode === 'existing' ? 'active' : ''}`}
+                        onClick={() => { setManualClientMode('existing'); setFormErr(''); }}
+                      >
+                        Existing client
+                      </button>
+                      <button
+                        className={`db-mode-btn ${manualClientMode === 'new' ? 'active' : ''}`}
+                        onClick={() => { setManualClientMode('new'); setFormErr(''); }}
+                      >
+                        New client
+                      </button>
+                    </div>
+                  </div>
+
+                  {manualClientMode === 'existing' ? (
+                    <div className="db-field">
+                      <label className="db-label">Client *</label>
+                      <select
+                        className="db-select"
+                        value={manualForm.client_id}
+                        onChange={e => { setManualForm(f => ({ ...f, client_id: e.target.value })); setFormErr(''); }}
+                      >
+                        <option value="">Select a client…</option>
+                        {clients.map(c => (
+                          <option key={c.id} value={c.id}>{c.full_name} — {c.phone}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="db-field-row">
+                        <div className="db-field">
+                          <label className="db-label">Client name *</label>
+                          <input
+                            className="db-input"
+                            type="text"
+                            placeholder="Full name"
+                            value={manualForm.client_name}
+                            onChange={e => setManualForm(f => ({ ...f, client_name: e.target.value }))}
+                          />
+                        </div>
+                        <div className="db-field">
+                          <label className="db-label">Email *</label>
+                          <input
+                            className="db-input"
+                            type="email"
+                            placeholder="client@email.com"
+                            value={manualForm.client_email}
+                            onChange={e => setManualForm(f => ({ ...f, client_email: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                      <div className="db-field">
+                        <label className="db-label">Phone (optional)</label>
+                        <input
+                          className="db-input"
+                          type="tel"
+                          placeholder="07…"
+                          value={manualForm.client_phone}
+                          onChange={e => setManualForm(f => ({ ...f, client_phone: e.target.value }))}
+                        />
+                      </div>
+                    </>
                   )}
-                </div>
+
+                  <div className="db-field-row">
+                    <div className="db-field">
+                      <label className="db-label">Amount (KES) *</label>
+                      <input
+                        className="db-input"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={manualForm.amount}
+                        onChange={e => setManualForm(f => ({ ...f, amount: e.target.value }))}
+                      />
+                    </div>
+                    <div className="db-field">
+                      <label className="db-label">Due date (optional)</label>
+                      <input className="db-input" type="date" value={manualForm.due_date} onChange={e => setManualForm(f => ({ ...f, due_date: e.target.value }))} />
+                    </div>
+                  </div>
+
+                  <div className="db-field">
+                    <label className="db-label">Description *</label>
+                    <input
+                      className="db-input"
+                      type="text"
+                      placeholder="What is this invoice for?"
+                      value={manualForm.description}
+                      onChange={e => setManualForm(f => ({ ...f, description: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="db-field">
+                    <label className="db-label">Notes (optional)</label>
+                    <textarea className="db-textarea" placeholder="Payment instructions, terms, or additional notes…" value={manualForm.notes} onChange={e => setManualForm(f => ({ ...f, notes: e.target.value }))} />
+                  </div>
+
+                  <div className="db-hint">
+                    This invoice is created exactly as entered — no unbilled expenses are attached to it.
+                    {manualClientMode === 'new' && ' The email above is where "Send to client" will deliver the INVOICE.'}
+                  </div>
+                </>
               )}
-              {previewErr && <div className="db-err">{previewErr}</div>}
-
-              <div className="db-field-row">
-                <div className="db-field">
-                  <label className="db-label">Due date (optional)</label>
-                  <input className="db-input" type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} />
-                </div>
-                <div className="db-field">
-                  <label className="db-label">&nbsp;</label>
-                  <div className="db-hint">Amount and issue date are set automatically.</div>
-                </div>
-              </div>
-
-              <div className="db-field">
-                <label className="db-label">Notes (optional)</label>
-                <textarea className="db-textarea" placeholder="Payment instructions, terms, or additional notes…" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
-              </div>
 
               {formErr && <div className="db-err">{formErr}</div>}
             </div>
             <div className="db-modal-foot">
               <button className="db-btn-secondary" onClick={() => { setShowModal(false); resetNewInvoiceForm(); }}>Cancel</button>
-              <button
-                className="db-btn-primary"
-                onClick={handleSubmit}
-                disabled={submitting || previewLoading || !form.client_id || !previewAmount}
-                style={{ margin: 0 }}
-              >
-                {submitting ? 'Generating…' : 'Generate invoice'}
-              </button>
+              {invMode === 'auto' ? (
+                <button
+                  className="db-btn-primary"
+                  onClick={handleSubmit}
+                  disabled={submitting || previewLoading || !form.client_id || !previewAmount}
+                  style={{ margin: 0 }}
+                >
+                  {submitting ? 'Generating…' : 'Generate invoice'}
+                </button>
+              ) : (
+                <button
+                  className="db-btn-primary"
+                  onClick={handleSubmit}
+                  disabled={
+                    submitting ||
+                    !manualForm.amount ||
+                    !manualForm.description.trim() ||
+                    (manualClientMode === 'existing' ? !manualForm.client_id : (!manualForm.client_name.trim() || !manualForm.client_email.trim()))
+                  }
+                  style={{ margin: 0 }}
+                >
+                  {submitting ? 'Creating…' : 'Create invoice'}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -732,6 +958,12 @@ export default function InvoicesPage() {
 
               {!pdfUrl && (
                 <div>
+                  {detailInv.description && (
+                    <div className="db-detail-row" style={{ flexDirection: 'column', gap: '6px', alignItems: 'flex-start' }}>
+                      <span className="db-detail-key">Description</span>
+                      <span style={{ fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.6 }}>{detailInv.description}</span>
+                    </div>
+                  )}
                   <div className="db-detail-row">
                     <span className="db-detail-key">Subtotal (excl. VAT)</span>
                     <span className="db-detail-val">{fmt(detailInv.total_amount)}</span>

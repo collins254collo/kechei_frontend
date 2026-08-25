@@ -583,7 +583,7 @@ export default function PaymentsPage() {
                   ))}
                   {invoices.filter(i => i.status === 'paid').length > 0 && (
                     <>
-                      <option disabled>── Paid invoices ──</option>
+                      <option disabled> Paid invoices </option>
                       {invoices.filter(i => i.status === 'paid').map(inv => (
                         <option key={inv.id} value={inv.id}>
                           {inv.invoice_number} — {inv.full_name} (paid)
