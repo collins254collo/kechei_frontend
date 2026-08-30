@@ -14,6 +14,7 @@ interface Invoice {
   invoice_number: string;
   full_name: string;
   total_amount: number;
+  final_amount: number;
   status: 'unpaid' | 'partial' | 'paid';
   issued_date: string;
 }
@@ -120,7 +121,7 @@ export default function PaymentsPage() {
   // selected invoice balance info
   const selectedInvoice = invoices.find(i => i.id === Number(form.invoice_id));
   const alreadyPaid = payments.filter(p => p.invoice_id === Number(form.invoice_id)).reduce((s, p) => s + Number(p.amount_paid), 0);
-  const balance = selectedInvoice ? Number(selectedInvoice.total_amount) - alreadyPaid : 0;
+  const balance = selectedInvoice ? Number(selectedInvoice.final_amount) - alreadyPaid : 0;
 
   //  Submit 
   const handleSubmit = async () => {
@@ -559,7 +560,7 @@ export default function PaymentsPage() {
         </div>
       </div>
 
-      {/* ── Record Payment Modal ── */}
+      {/*  Record Payment Modal  */}
       {showModal && (
         <div className="db-overlay" onClick={e => { if (e.target === e.currentTarget) { setShowModal(false); setFormErr(''); } }}>
           <div className="db-modal">
@@ -576,11 +577,21 @@ export default function PaymentsPage() {
                 <label className="db-label">Invoice *</label>
                 <select className="db-select" value={form.invoice_id} onChange={e => setForm(f => ({ ...f, invoice_id: e.target.value, amount_paid: '' }))}>
                   <option value="">Select an invoice…</option>
-                  {payableInvoices.map(inv => (
+                 {payableInvoices.map(inv => (
                     <option key={inv.id} value={inv.id}>
-                      {inv.invoice_number} — {inv.full_name} ({fmt(inv.total_amount)})
+                      {inv.invoice_number} — {inv.full_name} ({fmt(inv.final_amount)})
                     </option>
                   ))}
+                  {invoices.filter(i => i.status === 'paid').length > 0 && (
+                    <>
+                      <option disabled> Paid invoices </option>
+                      {invoices.filter(i => i.status === 'paid').map(inv => (
+                        <option key={inv.id} value={inv.id}>
+                          {inv.invoice_number} — {inv.full_name} (paid)
+                        </option>
+                      ))}
+                    </>
+                  )}
                   {invoices.filter(i => i.status === 'paid').length > 0 && (
                     <>
                       <option disabled> Paid invoices </option>
@@ -595,12 +606,12 @@ export default function PaymentsPage() {
               </div>
 
               {/* Balance info */}
-              {selectedInvoice && (
+             {selectedInvoice && (
                 <div className="db-balance-box">
                   <div>
                     <div style={{ marginBottom: '2px' }}>Balance remaining</div>
                     <div style={{ fontSize: '10px', color: 'var(--text-3)' }}>
-                      {fmt(selectedInvoice.total_amount)} total · {fmt(alreadyPaid)} paid
+                      {fmt(selectedInvoice.final_amount)} total · {fmt(alreadyPaid)} paid
                     </div>
                   </div>
                   <div className="db-balance-val">{fmt(Math.max(0, balance))}</div>
