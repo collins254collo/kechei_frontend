@@ -209,102 +209,107 @@ export default function InvoicesPage() {
   };
 
   //  New invoice: auto = bill unbilled expenses / manual = admin-entered amount + client 
-  const handleSubmit = async () => {
-    if (invMode === 'manual') {
-      if (manualClientMode === 'existing' && !manualForm.client_id) {
-        setFormErr('Please select a client.'); return;
+ const handleSubmit = async () => {
+  if (invMode === 'manual') {
+    if (manualClientMode === 'existing' && !manualForm.client_id) {
+      setFormErr('Please select a client.'); return;
+    }
+    if (manualClientMode === 'new') {
+      if (!manualForm.client_name.trim()) { setFormErr("Please enter the client's name."); return; }
+      if (!manualForm.client_email.trim() || !isValidEmail(manualForm.client_email)) {
+        setFormErr('Please enter a valid email address for this client.'); return;
       }
-      if (manualClientMode === 'new') {
-        if (!manualForm.client_name.trim()) { setFormErr("Please enter the client's name."); return; }
-        if (!manualForm.client_email.trim() || !isValidEmail(manualForm.client_email)) {
-          setFormErr('Please enter a valid email address for this client.'); return;
-        }
-      }
-      const amountNum = Number(manualForm.amount);
-      if (!manualForm.amount || isNaN(amountNum) || amountNum <= 0) {
-        setFormErr('Please enter a valid amount greater than zero.');
-        return;
-      }
-      if (!manualForm.description.trim()) { setFormErr('Please add a short description for this invoice.'); return; }
-
-      setSubmitting(true);
-      setFormErr('');
-      try {
-        const data = await createManualInvoice(
-          manualClientMode === 'existing'
-            ? {
-                client_id: Number(manualForm.client_id),
-                amount: amountNum,
-                description: manualForm.description.trim(),
-                ...(manualForm.due_date && { due_date: manualForm.due_date }),
-                ...(manualForm.notes && { notes: manualForm.notes }),
-              }
-            : {
-                client_name: manualForm.client_name.trim(),
-                client_email: manualForm.client_email.trim(),
-                ...(manualForm.client_phone.trim() && { client_phone: manualForm.client_phone.trim() }),
-                amount: amountNum,
-                description: manualForm.description.trim(),
-                ...(manualForm.due_date && { due_date: manualForm.due_date }),
-                ...(manualForm.notes && { notes: manualForm.notes }),
-              }
-        );
-
-        setInvoices(prev => [data, ...prev]);
-        // A brand-new client now exists as a real record — refresh so it's selectable next time.
-        if (manualClientMode === 'new') {
-          fetchClients().then(setClients).catch(() => {});
-        }
-        setShowModal(false);
-        resetNewInvoiceForm();
-        pushToast(`Invoice ${data.invoice_number} created`, 'success');
-      } catch (err: any) {
-        setFormErr(err.message || 'Network error. Try again.');
-      } finally {
-        setSubmitting(false);
-      }
+    }
+    const amountNum = Number(manualForm.amount);
+    if (!manualForm.amount || isNaN(amountNum) || amountNum <= 0) {
+      setFormErr('Please enter a valid amount greater than zero.');
       return;
     }
-
-    if (!form.client_id) { setFormErr('Please select a client.'); return; }
-    if (previewAmount === null) { setFormErr('Still checking unbilled expenses — try again in a moment.'); return; }
-    if (previewAmount <= 0) { setFormErr('This client has no unbilled expenses to invoice.'); return; }
+    if (!manualForm.description.trim()) { setFormErr('Please add a short description for this invoice.'); return; }
 
     setSubmitting(true);
     setFormErr('');
-
     try {
-      const data = await generateInvoiceFromClient({
-        client_id: Number(form.client_id),
-        ...(form.due_date && { due_date: form.due_date }),
-        ...(form.notes && { notes: form.notes }),
-      });
+      const data = await createManualInvoice(
+        manualClientMode === 'existing'
+          ? {
+              client_id: Number(manualForm.client_id),
+              amount: amountNum,
+              description: manualForm.description.trim(),
+              ...(manualForm.due_date && { due_date: manualForm.due_date }),
+              ...(manualForm.notes && { notes: manualForm.notes }),
+            }
+          : {
+              client_name: manualForm.client_name.trim(),
+              client_email: manualForm.client_email.trim(),
+              ...(manualForm.client_phone.trim() && { client_phone: manualForm.client_phone.trim() }),
+              amount: amountNum,
+              description: manualForm.description.trim(),
+              ...(manualForm.due_date && { due_date: manualForm.due_date }),
+              ...(manualForm.notes && { notes: manualForm.notes }),
+            }
+      );
 
-      setInvoices(prev => [data, ...prev]);
+      // POST /invoices/manual has no joined full_name (plain INSERT ... RETURNING *) 
+      const fallbackName = manualClientMode === 'existing'
+        ? clients.find(c => c.id === Number(manualForm.client_id))?.full_name
+        : manualForm.client_name.trim();
+
+      setInvoices(prev => [{ ...data, full_name: data.full_name ?? fallbackName }, ...prev]);
+      if (manualClientMode === 'new') {
+        fetchClients().then(setClients).catch(() => {});
+      }
       setShowModal(false);
       resetNewInvoiceForm();
-      pushToast(`Invoice ${data.invoice_number} generated`, 'success');
+      pushToast(`Invoice ${data.invoice_number} created`, 'success');
     } catch (err: any) {
       setFormErr(err.message || 'Network error. Try again.');
     } finally {
       setSubmitting(false);
     }
-  };
+    return;
+  }
 
-  //  Mark as paid 
-  const markPaid = async (inv: Invoice) => {
-    setMarkingId(inv.id);
-    try {
-      const updated = await updateInvoice(inv.id, { status: 'paid' });
-      setInvoices(prev => prev.map(i => i.id === inv.id ? updated : i));
-      if (detailInv?.id === inv.id) setDetailInv(updated);
-      pushToast(`${updated.invoice_number} marked as paid`, 'success');
-    } catch (err: any) {
-      pushToast(err.message || 'Failed to update invoice.', 'error');
-    } finally {
-      setMarkingId(null);
-    }
-  };
+  if (!form.client_id) { setFormErr('Please select a client.'); return; }
+  if (previewAmount === null) { setFormErr('Still checking unbilled expenses — try again in a moment.'); return; }
+  if (previewAmount <= 0) { setFormErr('This client has no unbilled expenses to invoice.'); return; }
+
+  setSubmitting(true);
+  setFormErr('');
+
+  try {
+    const data = await generateInvoiceFromClient({
+      client_id: Number(form.client_id),
+      ...(form.due_date && { due_date: form.due_date }),
+      ...(form.notes && { notes: form.notes }),
+    });
+
+    const client = clients.find(c => c.id === Number(form.client_id));
+    setInvoices(prev => [{ ...data, full_name: data.full_name ?? client?.full_name }, ...prev]);
+    setShowModal(false);
+    resetNewInvoiceForm();
+    pushToast(`Invoice ${data.invoice_number} generated`, 'success');
+  } catch (err: any) {
+    setFormErr(err.message || 'Network error. Try again.');
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+//  Mark as paid 
+const markPaid = async (inv: Invoice) => {
+  setMarkingId(inv.id);
+  try {
+    const updated = await updateInvoice(inv.id, { status: 'paid' });
+    setInvoices(prev => prev.map(i => i.id === inv.id ? { ...i, ...updated } : i));
+    if (detailInv?.id === inv.id) setDetailInv(prev => prev ? { ...prev, ...updated } : prev);
+    pushToast(`${updated.invoice_number} marked as paid`, 'success');
+  } catch (err: any) {
+    pushToast(err.message || 'Failed to update invoice.', 'error');
+  } finally {
+    setMarkingId(null);
+  }
+};
 
   //  PDF preview 
   const openDetail = (inv: Invoice) => {

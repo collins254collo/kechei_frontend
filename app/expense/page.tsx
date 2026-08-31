@@ -131,7 +131,7 @@ const load = () => {
 const selectedGroup = groupOptions.find(g => String(g.leaderVisit!.id) === form.visit_id);
 
   //  Submit 
- const handleSubmit = async () => {
+const handleSubmit = async () => {
   if (!form.visit_id)  { setFormErr('Please select a visit.'); return; }
   if (!form.category)  { setFormErr('Please select a category.'); return; }
   if (!form.amount || isNaN(Number(form.amount)) || Number(form.amount) <= 0) { setFormErr('Enter a valid amount.'); return; }
@@ -148,7 +148,12 @@ const selectedGroup = groupOptions.find(g => String(g.leaderVisit!.id) === form.
       description: form.description || undefined,
     });
 
-    setExpenses(prev => [data, ...prev]);
+    const matchedVisit = visits.find(v => v.id === Number(form.visit_id));
+    const fallbackName = selectedGroup
+      ? (selectedGroup.group_name || 'Group')
+      : (matchedVisit?.client_name || matchedVisit?.full_name);
+
+    setExpenses(prev => [{ ...data, visit_full_name: data.visit_full_name ?? fallbackName }, ...prev]);
     setShowModal(false);
     setForm({ visit_id: '', category: '', amount: '', expense_date: new Date().toISOString().split('T')[0], description: '' });
   } catch (err: any) {

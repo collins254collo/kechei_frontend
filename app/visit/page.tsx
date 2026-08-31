@@ -129,20 +129,20 @@ const updateMember = (i: number, field: string, value: string) =>
   ).length;
 
   //  Complete visit 
-  const handleCheckOut = async (id: number) => {
-    setCheckOutId(id);
-    try {
-      const updated = await completeVisit(id);
-      setVisits(prev => prev.map(v => v.id === id ? updated as Visit : v));
-    } catch (err: any) {
-      alert(err.message || 'Failed to complete visit.');
-    } finally {
-      setCheckOutId(null);
-    }
-  };
+ const handleCheckOut = async (id: number) => {
+  setCheckOutId(id);
+  try {
+    const updated = await completeVisit(id);
+    setVisits(prev => prev.map(v => v.id === id ? { ...v, ...updated } : v));
+  } catch (err: any) {
+    alert(err.message || 'Failed to complete visit.');
+  } finally {
+    setCheckOutId(null);
+  }
+};
 
   //  Create visit 
- const handleSubmit = async () => {
+const handleSubmit = async () => {
   setFormErr('');
 
   if (!form.reason.trim()) {
@@ -173,7 +173,11 @@ const updateMember = (i: number, field: string, value: string) =>
           })
         )
       );
-      setVisits(prev => [...(results as Visit[]), ...prev]);
+      const enriched = (results as Visit[]).map((v, i) => ({
+        ...v,
+        client_name: clients.find(c => c.id === Number(groupMembers[i].client_id))?.full_name,
+      }));
+      setVisits(prev => [...enriched, ...prev]);
       setShowModal(false);
       setForm({ isGroup: false, groupName: '', reason: '', notes: '', client_id: '', room_number: '' });
       setGroupMembers([{ client_id: '', room_number: '' }]);
@@ -184,7 +188,6 @@ const updateMember = (i: number, field: string, value: string) =>
       setSubmitting(false);
     }
   } else {
-    // Single visit — existing logic
     if (!form.client_id) { setFormErr('Please select a client.'); return; }
     setSubmitting(true);
     try {
@@ -194,7 +197,8 @@ const updateMember = (i: number, field: string, value: string) =>
         room_number: form.room_number || undefined,
         notes:       form.notes || undefined,
       });
-      setVisits(prev => [data as Visit, ...prev]);
+      const client = clients.find(c => c.id === Number(form.client_id));
+      setVisits(prev => [{ ...data, client_name: client?.full_name } as Visit, ...prev]);
       setShowModal(false);
       setForm({ isGroup: false, groupName: '', reason: '', notes: '', client_id: '', room_number: '' });
     } catch (err: any) {
