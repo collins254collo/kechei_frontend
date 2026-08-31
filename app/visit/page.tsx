@@ -719,7 +719,7 @@ const handleSubmit = async () => {
                     <label className="db-label">Room number</label>
                     <input
                       className="db-input"
-                      placeholder="e.g. Room 4, Cabin B…"
+                      placeholder="London, Texas"
                       value={form.room_number}
                       onChange={e => setForm(f => ({ ...f, room_number: e.target.value }))}
                     />

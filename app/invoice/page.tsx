@@ -899,7 +899,7 @@ const markPaid = async (inv: Invoice) => {
                   </div>
 
                   <div className="db-hint">
-                    This invoice is created exactly as entered — no unbilled expenses are attached to it.
+                    This invoice is created exactly as entered  no unbilled expenses are attached to it.
                     {manualClientMode === 'new' && ' The email above is where "Send to client" will deliver the INVOICE.'}
                   </div>
                 </>
