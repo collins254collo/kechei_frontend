@@ -43,7 +43,9 @@ type ManualClientMode = 'existing' | 'new';
 const STATUS_FILTERS = ['all', 'unpaid', 'partial', 'paid'] as const;
 type StatusFilter = typeof STATUS_FILTERS[number];
 
-function fmt(n: number) { return `KES ${Number(n).toLocaleString()}`; }
+function fmt(n: number) {
+  return `KES ${Number(n || 0).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 function fmtDate(d: string) { if (!d) return '—'; return new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }); }
 function isOverdue(inv: Invoice) {
   if (inv.status === 'paid' || !inv.due_date) return false;
