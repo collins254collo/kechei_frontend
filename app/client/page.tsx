@@ -295,10 +295,10 @@ const handleDelete = async (id: number) => {
 
         /* Form fields */
         .cl-field { margin-bottom:18px; }
-        .cl-label { display:block; font-size:9px; color:var(--text-2); letter-spacing:0.14em; text-transform:uppercase; margin-bottom:7px; }
+        .cl-label { display:block; font-size:13px; color:var(--text-2); letter-spacing:0.14em; text-transform:uppercase; margin-bottom:7px; }
         .cl-input {
           width:100%; background:var(--surface-2); border:1px solid var(--border); border-radius:8px;
-          padding:11px 14px; font-family:'DM Mono',monospace; font-size:12px; color:var(--text);
+          padding:11px 14px; font-family:'DM Mono',monospace; font-size:15px; color:var(--text);
           outline:none; transition:border-color 0.15s,box-shadow 0.15s;
         }
         .cl-input::placeholder { color:var(--text-3); }
