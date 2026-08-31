@@ -18,6 +18,9 @@ interface Visit {
   status: 'active' | 'completed';
   created_at?: string;
   check_in?: string;
+  group_id?: string;
+  group_name?: string;
+  is_group_leader?: boolean;
 }
 interface Expense {
   id: number;
@@ -67,7 +70,6 @@ export default function ExpensesPage() {
     visit_id: '', category: '', amount: '', expense_date: new Date().toISOString().split('T')[0], description: '',
   });
 
-  
 
 const load = () => {
   setLoading(true);
@@ -113,6 +115,20 @@ const load = () => {
   })).filter(c => c.count > 0).sort((a, b) => b.total - a.total);
 
   const maxCat = byCat[0]?.total || 1;
+
+  const groupOptions = Object.values(
+  visits.reduce((acc, v) => {
+    if (!v.group_id) return acc;
+    if (!acc[v.group_id]) {
+      acc[v.group_id] = { group_id: v.group_id, group_name: v.group_name, members: [] as Visit[], leaderVisit: undefined as Visit | undefined };
+    }
+    acc[v.group_id].members.push(v);
+    if (v.is_group_leader) acc[v.group_id].leaderVisit = v;
+    return acc;
+  }, {} as Record<string, { group_id: string; group_name?: string; members: Visit[]; leaderVisit?: Visit }>)
+).map(g => ({ ...g, leaderVisit: g.leaderVisit || g.members[0] }));
+
+const selectedGroup = groupOptions.find(g => String(g.leaderVisit!.id) === form.visit_id);
 
   //  Submit 
  const handleSubmit = async () => {
@@ -476,22 +492,42 @@ const load = () => {
               </button>
             </div>
             <div className="db-modal-body">
-              <div className="db-field">
+             <div className="db-field">
                 <label className="db-label">Visit / Client *</label>
                 <select className="db-select" value={form.visit_id} onChange={e => setForm(f => ({ ...f, visit_id: e.target.value }))}>
                   <option value="">Select a visit…</option>
-                {visits.map(v => (
-                  <option key={v.id} value={v.id}>
-                    {v.client_name || v.full_name || `Visit #${v.id}`} — {' '}
-                    {v.created_at
-                      ? new Date(v.created_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })
-                      : v.check_in
-                      ? new Date(v.check_in).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })
-                      : '—'
-                    } ({v.status})
-                  </option>
-                ))}
+                  {groupOptions.length > 0 && (
+                    <optgroup label="Groups (shared cost)">
+                      {groupOptions.map(g => (
+                        <option key={g.group_id} value={g.leaderVisit!.id}>
+                          {g.group_name || 'Group'} — {g.members.length} members
+                          {g.leaderVisit!.created_at
+                            ? ` · ${new Date(g.leaderVisit!.created_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}`
+                            : ''}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  <optgroup label="Individual visits">
+                    {visits.map(v => (
+                      <option key={v.id} value={v.id}>
+                        {v.client_name || v.full_name || `Visit #${v.id}`}
+                        {v.group_name ? ` (${v.group_name})` : ''} — {' '}
+                        {v.created_at
+                          ? new Date(v.created_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })
+                          : v.check_in
+                          ? new Date(v.check_in).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })
+                          : '—'
+                        } ({v.status})
+                      </option>
+                    ))}
+                  </optgroup>
                 </select>
+                {selectedGroup && (
+                  <div style={{ fontSize: '10px', color: 'var(--text-3)', marginTop: '4px' }}>
+                    Billed as one shared line across {selectedGroup.members.length} members of {selectedGroup.group_name || 'this group'}.
+                  </div>
+                )}
               </div>
 
               <div className="db-field-row">

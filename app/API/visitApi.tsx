@@ -35,6 +35,9 @@ export interface CreateVisitPayload {
   reason: string;
   notes?: string;
   room_number?: string;
+  group_id?: string;
+  group_name?: string;
+  is_group_leader?: boolean;
 }
 
 export interface UpdateVisitPayload {

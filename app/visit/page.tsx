@@ -22,7 +22,6 @@ interface Visit {
   completed_at?: string;
 }
 
-
 function fmtDate(d: string) {
   if (!d) return '—';
   return new Date(d).toLocaleString('en-KE', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -70,11 +69,16 @@ const [form, setForm] = useState({
 const [groupMembers, setGroupMembers] = useState([
   { client_id: '', room_number: '' }
 ]);
+const [leaderIndex, setLeaderIndex] = useState(0);
 
 const addMember = () => setGroupMembers(m => [...m, { client_id: '', room_number: '' }]);
-const removeMember = (i: number) => setGroupMembers(m => m.filter((_, idx) => idx !== i));
+const removeMember = (i: number) => {
+  setGroupMembers(m => m.filter((_, idx) => idx !== i));
+  setLeaderIndex(li => (i === li ? 0 : li > i ? li - 1 : li));
+};
 const updateMember = (i: number, field: string, value: string) =>
   setGroupMembers(m => m.map((mem, idx) => idx === i ? { ...mem, [field]: value } : mem));
+
 
   //  Load visits + clients
   const load = () => {
@@ -147,23 +151,25 @@ const updateMember = (i: number, field: string, value: string) =>
   }
 
   if (form.isGroup) {
-    // Validate all members have a client selected
     const invalid = groupMembers.some(m => !m.client_id);
     if (invalid) { setFormErr('Please select a client for each member.'); return; }
     if (groupMembers.length < 2) { setFormErr('A group visit needs at least 2 members.'); return; }
 
     setSubmitting(true);
     try {
-      // Create one visit per member, all sharing the same reason/notes/groupName
+      const group_id = crypto.randomUUID();
       const results = await Promise.all(
-        groupMembers.map(member =>
+        groupMembers.map((member, i) =>
           createVisit({
-            client_id:   Number(member.client_id),
-            reason:      form.isGroup && form.groupName
-                           ? `[${form.groupName}] ${form.reason}`
-                           : form.reason,
-            room_number: member.room_number || undefined,
-            notes:       form.notes || undefined,
+            client_id:       Number(member.client_id),
+            reason:          form.isGroup && form.groupName
+                              ? `[${form.groupName}] ${form.reason}`
+                              : form.reason,
+            room_number:     member.room_number || undefined,
+            notes:           form.notes || undefined,
+            group_id,
+            group_name:      form.groupName || undefined,
+            is_group_leader: i === leaderIndex,
           })
         )
       );
@@ -171,12 +177,12 @@ const updateMember = (i: number, field: string, value: string) =>
       setShowModal(false);
       setForm({ isGroup: false, groupName: '', reason: '', notes: '', client_id: '', room_number: '' });
       setGroupMembers([{ client_id: '', room_number: '' }]);
+      setLeaderIndex(0);
     } catch (err: any) {
       setFormErr(err.message || 'One or more check-ins failed.');
     } finally {
       setSubmitting(false);
     }
-
   } else {
     // Single visit — existing logic
     if (!form.client_id) { setFormErr('Please select a client.'); return; }
@@ -738,45 +744,52 @@ const updateMember = (i: number, field: string, value: string) =>
                   </div>
 
                   {groupMembers.map((member, i) => (
-                    <div key={i} style={{
-                      display: 'grid', gridTemplateColumns: '1fr 1fr auto',
-                      gap: '8px', alignItems: 'center',
-                      padding: '10px', background: 'var(--surface-2)',
-                      borderRadius: '8px', border: '1px solid var(--border)',
-                    }}>
-                      <select
-                        className="db-select"
-                        style={{ padding: '8px 10px', fontSize: '11px' }}
-                        value={member.client_id}
-                        onChange={e => updateMember(i, 'client_id', e.target.value)}
-                      >
-                        <option value="">Select client…</option>
-                        {clients.map(c => (
-                          <option key={c.id} value={c.id}>{c.full_name}</option>
-                        ))}
-                      </select>
-                      <input
-                        className="db-input"
-                        style={{ padding: '8px 10px', fontSize: '11px' }}
-                        placeholder="Room (optional)"
-                        value={member.room_number}
-                        onChange={e => updateMember(i, 'room_number', e.target.value)}
-                      />
-                      {groupMembers.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeMember(i)}
-                          style={{
-                            background: 'none', border: 'none', cursor: 'pointer',
-                            color: 'var(--text-3)', fontSize: '16px', lineHeight: 1,
-                            padding: '4px',
-                          }}
+                      <div key={i} style={{
+                        display: 'grid', gridTemplateColumns: 'auto 1fr 1fr auto',
+                        gap: '8px', alignItems: 'center',
+                        padding: '10px', background: 'var(--surface-2)',
+                        borderRadius: '8px', border: '1px solid var(--border)',
+                      }}>
+                        <input
+                          type="radio"
+                          name="group-leader"
+                          checked={leaderIndex === i}
+                          onChange={() => setLeaderIndex(i)}
+                          title="Bill to this member"
+                        />
+                        <select
+                          className="db-select"
+                          style={{ padding: '8px 10px', fontSize: '11px' }}
+                          value={member.client_id}
+                          onChange={e => updateMember(i, 'client_id', e.target.value)}
                         >
-                          ×
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                          <option value="">Select client…</option>
+                          {clients.map(c => (
+                            <option key={c.id} value={c.id}>{c.full_name}</option>
+                          ))}
+                        </select>
+                        <input
+                          className="db-input"
+                          style={{ padding: '8px 10px', fontSize: '11px' }}
+                          placeholder="Room (optional)"
+                          value={member.room_number}
+                          onChange={e => updateMember(i, 'room_number', e.target.value)}
+                        />
+                        {groupMembers.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeMember(i)}
+                            style={{
+                              background: 'none', border: 'none', cursor: 'pointer',
+                              color: 'var(--text-3)', fontSize: '16px', lineHeight: 1,
+                              padding: '4px',
+                            }}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    ))}
                 </div>
               )}
 
