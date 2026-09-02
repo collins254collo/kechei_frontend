@@ -71,9 +71,9 @@ export default function InvoicesPage() {
   const [sortKey, setSortKey]     = useState<SortKey>('issued_date');
   const [sortDir, setSortDir]     = useState<SortDir>('desc');
 
-  // New-invoice mode: auto (from unbilled expenses) or manual (admin-entered)
+  //  auto (from unbilled expenses) or manual (admin-entered)
   const [invMode, setInvMode] = useState<InvoiceMode>('auto');
-  // Manual mode only: bill an existing client, or a freshly typed-in name + email
+  //  bill an existing client, or a freshly typed-in name + email
   const [manualClientMode, setManualClientMode] = useState<ManualClientMode>('existing');
 
   // Toasts
@@ -94,7 +94,6 @@ export default function InvoicesPage() {
   const [previewErr, setPreviewErr] = useState('');
 
   // Manual invoice form — admin enters amount + description, and either
-  // picks an existing client or types in a brand-new name + email.
   const [manualForm, setManualForm] = useState({
     client_id: '', client_name: '', client_email: '', client_phone: '',
     amount: '', description: '', due_date: '', notes: '',
@@ -106,6 +105,7 @@ export default function InvoicesPage() {
   const [pdfErr, setPdfErr]         = useState('');
   const [sendingId, setSendingId]   = useState<number | null>(null);
   const [sendErr, setSendErr]       = useState('');
+  const [pdfFullscreen, setPdfFullscreen] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -210,7 +210,6 @@ export default function InvoicesPage() {
     setFormErr('');
   };
 
-  //  New invoice: auto = bill unbilled expenses / manual = admin-entered amount + client 
  const handleSubmit = async () => {
   if (invMode === 'manual') {
     if (manualClientMode === 'existing' && !manualForm.client_id) {
@@ -252,7 +251,7 @@ export default function InvoicesPage() {
             }
       );
 
-      // POST /invoices/manual has no joined full_name (plain INSERT ... RETURNING *) 
+      // POST /invoices/manual has no joined full_name  
       const fallbackName = manualClientMode === 'existing'
         ? clients.find(c => c.id === Number(manualForm.client_id))?.full_name
         : manualForm.client_name.trim();
@@ -304,6 +303,7 @@ export default function InvoicesPage() {
     setPdfUrl(null);
     setPdfErr('');
     setSendErr('');
+    setPdfFullscreen(false);
   };
 
   const closeDetail = () => {
@@ -312,6 +312,25 @@ export default function InvoicesPage() {
     setPdfUrl(null);
     setPdfErr('');
     setSendErr('');
+    setPdfFullscreen(false);
+  };
+
+  // Let Escape collapse full screen before it closes the whole modal
+  useEffect(() => {
+    if (!pdfFullscreen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPdfFullscreen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [pdfFullscreen]);
+
+  const downloadPdf = () => {
+    if (!pdfUrl || !detailInv) return;
+    const a = document.createElement('a');
+    a.href = pdfUrl;
+    a.download = `${detailInv.invoice_number}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   };
 
   const loadPdfPreview = async (inv: Invoice) => {
@@ -498,6 +517,13 @@ export default function InvoicesPage() {
         .db-pdf-frame { width: 100%; height: 60vh; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
         .db-pdf-placeholder { height: 60vh; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border); border-radius: 8px; color: var(--text-3); font-size: 12px; flex-direction: column; gap: 12px; }
 
+        .db-modal-full { max-width: 96vw; width: 96vw; height: 92vh; display: flex; flex-direction: column; }
+        .db-modal-full .db-modal-body { flex: 1; max-height: none; display: flex; flex-direction: column; }
+        .db-modal-full .db-pdf-frame { flex: 1; height: auto; min-height: 0; }
+        .db-pdf-toolbar { display: flex; align-items: center; gap: 8px; }
+        .db-pdf-icon-btn { background: none; border: none; cursor: pointer; color: var(--text-3); transition: color 0.15s; padding: 2px; display: flex; align-items: center; }
+        .db-pdf-icon-btn:hover { color: var(--text); }
+
         .db-side-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 35; }
         .db-side-overlay.open { display: block; }
 
@@ -524,6 +550,7 @@ export default function InvoicesPage() {
           .db-btn-primary span { display: none; }
           .db-table th:nth-child(4), .db-table td:nth-child(4) { display: none; }
           .db-modal-xl { max-width: 100%; }
+          .db-modal-full { max-width: 100%; width: 100%; height: 100dvh; border-radius: 0; }
           .db-pdf-frame, .db-pdf-placeholder { height: 45vh; }
           .db-toasts { left: 16px; right: 16px; bottom: 16px; max-width: none; }
         }
@@ -703,7 +730,7 @@ export default function InvoicesPage() {
         ))}
       </div>
 
-      {/* New Invoice Modal — auto (from unbilled expenses) or manual (admin-entered) */}
+      {/* New Invoice Modal  */}
       {showModal && (
         <div className="db-overlay" onClick={e => { if (e.target === e.currentTarget) { setShowModal(false); resetNewInvoiceForm(); } }}>
           <div className="db-modal">
@@ -923,18 +950,38 @@ export default function InvoicesPage() {
         </div>
       )}
 
-      {/* Invoice Detail Modal — includes PDF preview-then-send */}
+      {/* Invoice Detail Modal */}
       {detailInv && (
         <div className="db-overlay" onClick={e => { if (e.target === e.currentTarget) closeDetail(); }}>
-          <div className={`db-modal ${pdfUrl ? 'db-modal-xl' : 'db-modal-lg'}`}>
+          <div className={`db-modal ${pdfFullscreen ? 'db-modal-full' : pdfUrl ? 'db-modal-xl' : 'db-modal-lg'}`}>
             <div className="db-modal-head">
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span className="db-modal-title">Invoice</span>
                 <span className="db-inv-number">{detailInv.invoice_number}</span>
               </div>
-              <button className="db-modal-close" onClick={closeDetail}>
-                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" /></svg>
-              </button>
+              <div className="db-pdf-toolbar">
+                {pdfUrl && !pdfLoading && (
+                  <>
+                    <button className="db-pdf-icon-btn" onClick={downloadPdf} title="Download PDF">
+                      <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16" /></svg>
+                    </button>
+                    <button
+                      className="db-pdf-icon-btn"
+                      onClick={() => setPdfFullscreen(f => !f)}
+                      title={pdfFullscreen ? 'Exit full screen' : 'Full screen'}
+                    >
+                      {pdfFullscreen ? (
+                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M8 3v3a2 2 0 01-2 2H3m18 0h-3a2 2 0 01-2-2V3m0 18v-3a2 2 0 012-2h3M3 16h3a2 2 0 012 2v3" /></svg>
+                      ) : (
+                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" /></svg>
+                      )}
+                    </button>
+                  </>
+                )}
+                <button className="db-modal-close" onClick={closeDetail}>
+                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                </button>
+              </div>
             </div>
             <div className="db-modal-body">
               <div style={{ padding: '12px 16px', borderRadius: '8px', background: statusBg(detailInv.status), display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
