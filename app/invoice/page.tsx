@@ -298,21 +298,6 @@ export default function InvoicesPage() {
   }
 };
 
-//  Mark as paid 
-const markPaid = async (inv: Invoice) => {
-  setMarkingId(inv.id);
-  try {
-    const updated = await updateInvoice(inv.id, { status: 'paid' });
-    setInvoices(prev => prev.map(i => i.id === inv.id ? { ...i, ...updated } : i));
-    if (detailInv?.id === inv.id) setDetailInv(prev => prev ? { ...prev, ...updated } : prev);
-    pushToast(`${updated.invoice_number} marked as paid`, 'success');
-  } catch (err: any) {
-    pushToast(err.message || 'Failed to update invoice.', 'error');
-  } finally {
-    setMarkingId(null);
-  }
-};
-
   //  PDF preview 
   const openDetail = (inv: Invoice) => {
     setDetailInv(inv);
@@ -956,11 +941,6 @@ const markPaid = async (inv: Invoice) => {
                 <span className="db-badge" style={{ color: statusColor(detailInv.status), background: 'transparent', padding: 0 }}>
                   {detailInv.status}
                 </span>
-                {detailInv.status !== 'paid' && (
-                  <button className="db-mark-btn" disabled={markingId === detailInv.id} onClick={() => markPaid(detailInv)}>
-                    {markingId === detailInv.id ? 'Updating…' : ' Mark as paid'}
-                  </button>
-                )}
               </div>
 
               {!pdfUrl && (
