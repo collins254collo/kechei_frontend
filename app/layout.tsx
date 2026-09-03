@@ -13,6 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  icons: {
+    icon: "/kechei.svg",
+  },
   title: "Kechei Client Ledger",
   description: "For managing Ledgers",
 };
