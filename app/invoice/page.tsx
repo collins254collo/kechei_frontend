@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   fetchInvoices,
   updateInvoice,
+  deleteInvoice,
   previewUnbilledByClient,
   generateInvoiceFromClient,
   createManualInvoice,
@@ -75,6 +76,10 @@ export default function InvoicesPage() {
   const [invMode, setInvMode] = useState<InvoiceMode>('auto');
   //  bill an existing client, or a freshly typed-in name + email
   const [manualClientMode, setManualClientMode] = useState<ManualClientMode>('existing');
+
+  // Delete state
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [confirmDeleteInv, setConfirmDeleteInv] = useState<Invoice | null>(null);
 
   // Toasts
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -358,6 +363,22 @@ export default function InvoicesPage() {
       setSendErr(err.message || 'Failed to send invoice.');
     } finally {
       setSendingId(null);
+    }
+  };
+
+  //  Delete invoice 
+  const handleDelete = async (inv: Invoice) => {
+    setDeletingId(inv.id);
+    try {
+      await deleteInvoice(inv.id);
+      setInvoices(prev => prev.filter(i => i.id !== inv.id));
+      pushToast(`Invoice ${inv.invoice_number} deleted`, 'success');
+      setConfirmDeleteInv(null);
+      if (detailInv?.id === inv.id) closeDetail();
+    } catch (err: any) {
+      pushToast(err.message || 'Failed to delete invoice.', 'error');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -699,7 +720,15 @@ export default function InvoicesPage() {
                           <td className="db-td">
                             <span className="db-badge" style={{ color: statusColor(inv.status), background: statusBg(inv.status) }}>{inv.status}</span>
                           </td>
-                         
+                          <td className="db-td" onClick={e => e.stopPropagation()}>
+                            <button
+                              className="db-mark-btn"
+                              style={{ borderColor: 'var(--badge-red-tx)', color: 'var(--badge-red-tx)' }}
+                              onClick={() => setConfirmDeleteInv(inv)}
+                            >
+                              Delete
+                            </button>
+                          </td>
                         </tr>
                       );
                     })}
@@ -1046,6 +1075,13 @@ export default function InvoicesPage() {
             </div>
             <div className="db-modal-foot">
               <button className="db-btn-secondary" onClick={closeDetail}>Close</button>
+              <button
+                className="db-btn-secondary"
+                style={{ borderColor: 'var(--badge-red-tx)', color: 'var(--badge-red-tx)' }}
+                onClick={() => setConfirmDeleteInv(detailInv)}
+              >
+                Delete
+              </button>
 
               {!pdfUrl ? (
                 <button
@@ -1066,6 +1102,37 @@ export default function InvoicesPage() {
                   {sendingId === detailInv.id ? 'Sending…' : 'Send to client'}
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {confirmDeleteInv && (
+        <div className="db-overlay" onClick={e => { if (e.target === e.currentTarget) setConfirmDeleteInv(null); }}>
+          <div className="db-modal" style={{ maxWidth: '380px' }}>
+            <div className="db-modal-head">
+              <span className="db-modal-title">Delete invoice?</span>
+              <button className="db-modal-close" onClick={() => setConfirmDeleteInv(null)}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="db-modal-body">
+              <p style={{ fontSize: '14px', color: 'var(--text-2)', lineHeight: 1.6 }}>
+                Are you sure you want to delete <strong style={{ color: 'var(--text)' }}>{confirmDeleteInv.invoice_number}</strong>?
+                This cannot be undone.
+              </p>
+            </div>
+            <div className="db-modal-foot">
+              <button className="db-btn-secondary" onClick={() => setConfirmDeleteInv(null)}>Cancel</button>
+              <button
+                className="db-btn-primary"
+                style={{ margin: 0, background: 'var(--badge-red-tx)' }}
+                disabled={deletingId === confirmDeleteInv.id}
+                onClick={() => handleDelete(confirmDeleteInv)}
+              >
+                {deletingId === confirmDeleteInv.id ? 'Deleting…' : 'Delete'}
+              </button>
             </div>
           </div>
         </div>
