@@ -7,6 +7,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -224,6 +225,18 @@ useEffect(() => {
           box-shadow: 0 0 0 3px rgba(176,125,74,0.12);
         }
 
+        /* Password field with eye toggle */
+        .kl-input-wrap { position: relative; }
+        .kl-input-wrap .kl-input { padding-right: 44px; }
+        .kl-eye-btn {
+          position: absolute; top: 50%; right: 12px; transform: translateY(-50%);
+          background: none; border: none; padding: 4px; cursor: pointer;
+          color: var(--text-muted); display: flex; align-items: center; justify-content: center;
+          transition: color 0.15s;
+        }
+        .kl-eye-btn:hover { color: var(--text); }
+        .kl-eye-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
         .kl-err {
           font-size: 11px; color: var(--err-tx);
           background: var(--err-bg); border: 1px solid var(--err-bd);
@@ -339,7 +352,7 @@ useEffect(() => {
           <div className="kl-ver">Kechei Centre</div>
         </div>
 
-        {/* ── RIGHT ── */}
+        {/*  RIGHT  */}
         <div className={`kl-right ${mounted ? '' : 'opacity-0'}`}>
           <div className="kl-corner" />
 
@@ -369,16 +382,39 @@ useEffect(() => {
 
             <div className="kl-field kl-a4">
               <label htmlFor="password" className="kl-label">Password</label>
-              <input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                placeholder="••••••••"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                className="kl-input"
-              />
+              <div className="kl-input-wrap">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  className="kl-input"
+                />
+                <button
+                  type="button"
+                  className="kl-eye-btn"
+                  onClick={() => setShowPassword(s => !s)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                  tabIndex={0}
+                >
+                  {showPassword ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z" />
+                      <circle cx="12" cy="12" r="3" />
+                      <line x1="3" y1="21" x2="21" y2="3" />
+                    </svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
 
             {error && <div className="kl-err">{error}</div>}
