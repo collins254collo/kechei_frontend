@@ -16,6 +16,7 @@ const getHeaders = (): Record<string, string> => {
 
 // Types
 export interface Expense {
+  currency: string;
   id: number;
   visit_id: number;
   visit_full_name?: string;

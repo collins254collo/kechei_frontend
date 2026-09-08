@@ -28,6 +28,7 @@ interface Expense {
   visit_full_name?: string;
   category: string;
   amount: number;
+  currency: string; // 'KES' | 'USD' | 'EUR'
   expense_date: string;
   description?: string;
 }
@@ -45,9 +46,34 @@ const CAT_COLORS: Record<string, string> = {
   other:         '#808080',
 };
 
-function fmt(n: number) { return `KES ${Number(n).toLocaleString()}`; }
+//  Currency 
+interface CurrencyMeta { code: string; symbol: string; label: string; }
+const CURRENCIES: CurrencyMeta[] = [
+  { code: 'KES', symbol: 'KES', label: 'Kenyan Shilling' },
+  { code: 'USD', symbol: '$',   label: 'US Dollar' },
+  { code: 'EUR', symbol: '€',   label: 'Euro' },
+];
+const DEFAULT_CURRENCY = 'KES';
+
+function currencyMeta(code: string) {
+  return CURRENCIES.find(c => c.code === code) || CURRENCIES[0];
+}
+
+function fmt(n: number, currency: string = DEFAULT_CURRENCY) {
+  const meta = currencyMeta(currency);
+  return `${meta.symbol} ${Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+}
+
+function groupSumByCurrency(list: Expense[]) {
+  return list.reduce((acc, e) => {
+    const cur = e.currency || DEFAULT_CURRENCY;
+    acc[cur] = (acc[cur] || 0) + Number(e.amount);
+    return acc;
+  }, {} as Record<string, number>);
+}
+
 function fmtDate(d: string) {
-  if (!d) return '—';``
+  if (!d) return '—';
   return new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
@@ -65,9 +91,10 @@ export default function ExpensesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formErr, setFormErr]   = useState('');
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [breakdownCurrency, setBreakdownCurrency] = useState(DEFAULT_CURRENCY);
 
   const [form, setForm] = useState({
-    visit_id: '', category: '', amount: '', expense_date: new Date().toISOString().split('T')[0], description: '',
+    visit_id: '', category: '', amount: '', currency: DEFAULT_CURRENCY, expense_date: new Date().toISOString().split('T')[0], description: '',
   });
 
 
@@ -78,7 +105,9 @@ const load = () => {
     fetchExpenses(),
     fetchActiveVisits(),
   ]).then(([e, v]) => {
-    if (e.status === 'fulfilled') setExpenses(e.value);
+    if (e.status === 'fulfilled') {
+      setExpenses(e.value.map(expense => ({ ...expense, currency: DEFAULT_CURRENCY })));
+    }
     if (v.status === 'fulfilled') setVisits(v.value as Visit[]);
   }).finally(() => setLoading(false));
 };
@@ -100,21 +129,29 @@ const load = () => {
     return matchCat && matchSearch;
   });
 
-  const totalAll   = expenses.reduce((s, e) => s + Number(e.amount), 0);
-  const totalMonth = expenses.filter(e => {
+  // e.g. USD + KES amounts directly would produce a meaningless number.
+  const totalAllByCurrency = groupSumByCurrency(expenses);
+  const totalMonthByCurrency = groupSumByCurrency(expenses.filter(e => {
     const d = new Date(e.expense_date);
     const now = new Date();
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  }).reduce((s, e) => s + Number(e.amount), 0);
+  }));
 
-  // per-category totals
-  const byCat = CATEGORIES.map(cat => ({
-    cat,
-    total: expenses.filter(e => e.category === cat).reduce((s, e) => s + Number(e.amount), 0),
-    count: expenses.filter(e => e.category === cat).length,
-  })).filter(c => c.count > 0).sort((a, b) => b.total - a.total);
+  const currenciesPresent = Array.from(new Set(expenses.map(e => e.currency || DEFAULT_CURRENCY)));
+  const breakdownCurrencyOptions = currenciesPresent.length > 0 ? currenciesPresent : [DEFAULT_CURRENCY];
+
+  // per-category totals, scoped to the currency selected in the breakdown panel
+  const byCat = CATEGORIES.map(cat => {
+    const catExpenses = expenses.filter(e => e.category === cat && (e.currency || DEFAULT_CURRENCY) === breakdownCurrency);
+    return {
+      cat,
+      total: catExpenses.reduce((s, e) => s + Number(e.amount), 0),
+      count: catExpenses.length,
+    };
+  }).filter(c => c.count > 0).sort((a, b) => b.total - a.total);
 
   const maxCat = byCat[0]?.total || 1;
+  const breakdownTotal = byCat.reduce((s, c) => s + c.total, 0);
 
   const groupOptions = Object.values(
   visits.reduce((acc, v) => {
@@ -135,6 +172,7 @@ const handleSubmit = async () => {
   if (!form.visit_id)  { setFormErr('Please select a visit.'); return; }
   if (!form.category)  { setFormErr('Please select a category.'); return; }
   if (!form.amount || isNaN(Number(form.amount)) || Number(form.amount) <= 0) { setFormErr('Enter a valid amount.'); return; }
+  if (!form.currency)  { setFormErr('Please select a currency.'); return; }
 
   setSubmitting(true);
   setFormErr('');
@@ -153,9 +191,9 @@ const handleSubmit = async () => {
       ? (selectedGroup.group_name || 'Group')
       : (matchedVisit?.client_name || matchedVisit?.full_name);
 
-    setExpenses(prev => [{ ...data, visit_full_name: data.visit_full_name ?? fallbackName }, ...prev]);
+    setExpenses(prev => [{ ...data, currency: data.currency ?? form.currency, visit_full_name: data.visit_full_name ?? fallbackName }, ...prev]);
     setShowModal(false);
-    setForm({ visit_id: '', category: '', amount: '', expense_date: new Date().toISOString().split('T')[0], description: '' });
+    setForm({ visit_id: '', category: '', amount: '', currency: DEFAULT_CURRENCY, expense_date: new Date().toISOString().split('T')[0], description: '' });
   } catch (err: any) {
     setFormErr(err.message || 'Network error. Try again.');
   } finally {
@@ -202,25 +240,25 @@ const handleSubmit = async () => {
         .db-side-head { padding: 28px 20px 24px; border-bottom: 1px solid var(--sidebar-border); display: flex; align-items: center; gap: 10px; }
         .db-logo { flex-shrink: 0; border-radius: 6px; }
         .db-brand-text { display: flex; flex-direction: column; }
-        .db-brand { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; color: #fff; letter-spacing: -0.8px; }
-        .db-brand-sub { font-size: 9px; color: #9c9690; letter-spacing: 0.16em; text-transform: uppercase; margin-top: 3px; }
+        .db-brand { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px; color: #fff; letter-spacing: -0.8px; }
+        .db-brand-sub { font-size: 12px; color: #9c9690; letter-spacing: 0.16em; text-transform: uppercase; margin-top: 3px; }
         .db-nav { flex: 1; padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
-        .db-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; font-size: 18px; color: var(--sidebar-text); cursor: pointer; transition: background 0.15s, color 0.15s; letter-spacing: 0.02em; border: none; background: none; width: 100%; text-align: left; }
+        .db-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; font-size: 22px; color: var(--sidebar-text); cursor: pointer; transition: background 0.15s, color 0.15s; letter-spacing: 0.02em; border: none; background: none; width: 100%; text-align: left; }
         .db-nav-item:hover { background: rgba(255,255,255,0.05); color: #d4cfc8; }
         .db-nav-item.active { background: var(--sidebar-act-bg); color: var(--sidebar-active); }
         .db-nav-item svg { opacity: 0.5; flex-shrink: 0; transition: opacity 0.15s; }
         .db-nav-item.active svg { opacity: 1; }
         .db-nav-item:hover svg { opacity: 0.75; }
         .db-side-foot { padding: 16px 20px; border-top: 1px solid var(--sidebar-border); }
-        .db-user-name { font-size: 12px; color: #706a62; }
-        .db-user-role { font-size: 10px; color: #403c38; margin-top: 2px; text-transform: capitalize; letter-spacing: 0.06em; }
-        .db-logout { margin-top: 12px; font-size: 10px; color: #4a4640; background: none; border: none; cursor: pointer; letter-spacing: 0.08em; text-transform: uppercase; transition: color 0.15s; padding: 0; }
+        .db-user-name { font-size: 16px; color: #706a62; }
+        .db-user-role { font-size: 14px; color: #403c38; margin-top: 2px; text-transform: capitalize; letter-spacing: 0.06em; }
+        .db-logout { margin-top: 12px; font-size: 14px; color: #4a4640; background: none; border: none; cursor: pointer; letter-spacing: 0.08em; text-transform: uppercase; transition: color 0.15s; padding: 0; }
         .db-logout:hover { color: #c9a96e; }
 
         .db-main { flex: 1; margin-left: 220px; display: flex; flex-direction: column; position: relative; z-index: 1; min-height: 100vh; }
         .db-topbar { position: sticky; top: 0; z-index: 30; background: var(--bg); border-bottom: 1px solid var(--border); padding: 0 32px; height: 60px; display: flex; align-items: center; justify-content: space-between; backdrop-filter: blur(8px); }
-        .db-topbar-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
-        .db-topbar-date { font-size: 14px; color: var(--text-3); letter-spacing: 0.08em; }
+        .db-topbar-title { font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
+        .db-topbar-date { font-size: 18px; color: var(--text-3); letter-spacing: 0.08em; }
         .db-hamburger { display: none; background: none; border: none; cursor: pointer; color: var(--text); padding: 4px; }
         .db-content { padding: 32px; flex: 1; }
 
@@ -228,31 +266,32 @@ const handleSubmit = async () => {
         .db-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; box-shadow: var(--shadow); position: relative; overflow: hidden; }
         .db-stat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent); opacity: 0.4; }
         .db-stat:first-child::before { opacity: 1; }
-        .db-stat-label { font-size: 9px; color: var(--text-2); letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 10px; }
-        .db-stat-value { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.8px; line-height: 1; }
-        .db-stat-sub { font-size: 10px; color: var(--text-3); margin-top: 6px; }
+        .db-stat-label { font-size: 13px; color: var(--text-2); letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 10px; }
+        .db-stat-value { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 700; color: var(--text); letter-spacing: -0.8px; line-height: 1.25; }
+        .db-stat-value.db-stat-value-multi { font-size: 19px; }
+        .db-stat-sub { font-size: 14px; color: var(--text-3); margin-top: 6px; }
 
         /* layout row */
         .db-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 20px; animation: db-up 0.5s ease 0.1s both; }
 
         .db-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
-        .db-card-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
-        .db-card-title { font-family: 'Syne', roboto; font-size: 18px; font-weight: 700; color: var(--text); letter-spacing: -0.2px; }
-        .db-card-count { font-size: 15px; color: var(--text-3); letter-spacing: 0.06em; }
+        .db-card-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); gap: 10px; flex-wrap: wrap; }
+        .db-card-title { font-family: 'Syne', roboto; font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.2px; }
+        .db-card-count { font-size: 19px; color: var(--text-3); letter-spacing: 0.06em; }
 
         /* toolbar */
         .db-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
         .db-search { flex: 1; min-width: 180px; max-width: 300px; display: flex; align-items: center; gap: 8px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; height: 34px; }
         .db-search svg { opacity: 0.35; flex-shrink: 0; }
-        .db-search input { border: none; background: none; outline: none; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text); flex: 1; }
+        .db-search input { border: none; background: none; outline: none; font-family: 'DM Mono', monospace; font-size: 16px; color: var(--text); flex: 1; }
         .db-search input::placeholder { color: var(--text-3); }
 
         .db-cat-scroll { display: flex; gap: 6px; flex-wrap: wrap; }
-        .db-cat-chip { height: 30px; padding: 0 12px; border-radius: 20px; font-family: 'DM Mono', monospace; font-size: 15px; letter-spacing: 0.04em; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; transition: all 0.15s; text-transform: capitalize; white-space: nowrap; }
+        .db-cat-chip { height: 30px; padding: 0 12px; border-radius: 20px; font-family: 'DM Mono', monospace; font-size: 19px; letter-spacing: 0.04em; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; transition: all 0.15s; text-transform: capitalize; white-space: nowrap; }
         .db-cat-chip:hover { color: var(--text); }
         .db-cat-chip.active { color: #fff; border-color: transparent; }
 
-        .db-btn-primary { height: 34px; padding: 0 14px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; background: var(--accent); color: #fff; border: none; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; gap: 6px; white-space: nowrap; margin-left: auto; }
+        .db-btn-primary { height: 34px; padding: 0 14px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 16px; letter-spacing: 0.06em; text-transform: uppercase; background: var(--accent); color: #fff; border: none; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; gap: 6px; white-space: nowrap; margin-left: auto; }
         .db-btn-primary:hover { background: var(--accent-h); }
 
         .db-table { width: 100%; border-collapse: collapse; }
@@ -268,6 +307,7 @@ const handleSubmit = async () => {
 
         .db-cat-dot { display: inline-flex; align-items: center; gap: 6px; }
         .db-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .db-cur-badge { display: inline-block; font-size: 10px; letter-spacing: 0.06em; color: var(--text-3); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; margin-left: 6px; vertical-align: middle; }
 
         .db-del-btn { background: none; border: none; cursor: pointer; color: var(--text-3); padding: 8px; border-radius: 4px; transition: color 0.15s, background 0.15s; line-height: 1; }
         .db-del-btn:hover { color: var(--badge-red-tx); background: var(--badge-red-bg); }
@@ -283,6 +323,11 @@ const handleSubmit = async () => {
         .db-expbar-fill { height: 100%; border-radius: 99px; transition: width 0.7s cubic-bezier(0.16,1,0.3,1); }
         .db-expbar-val { font-size: 15px; color: var(--text-2); width: 88px; text-align: right; flex-shrink: 0; }
 
+        .db-cur-toggle { display: flex; gap: 4px; }
+        .db-cur-toggle-btn { height: 24px; padding: 0 9px; border-radius: 6px; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.04em; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; transition: all 0.15s; }
+        .db-cur-toggle-btn:hover { color: var(--text); }
+        .db-cur-toggle-btn.active { background: var(--accent); color: #fff; border-color: transparent; }
+
         @keyframes db-shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
         .db-skel { background: linear-gradient(90deg, var(--border) 25%, var(--surface-2) 50%, var(--border) 75%); background-size: 800px 100%; animation: db-shimmer 1.4s infinite; border-radius: 4px; height: 12px; }
 
@@ -292,17 +337,19 @@ const handleSubmit = async () => {
         .db-modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 460px; box-shadow: 0 24px 48px rgba(0,0,0,0.15); overflow: hidden; animation: db-slide 0.25s cubic-bezier(0.16,1,0.3,1); }
         @keyframes db-slide { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .db-modal-head { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-        .db-modal-title { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
+        .db-modal-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
         .db-modal-close { background: none; border: none; cursor: pointer; color: var(--text-3); transition: color 0.15s; padding: 2px; }
         .db-modal-close:hover { color: var(--text); }
         .db-modal-body { padding: 24px; display: flex; flex-direction: column; gap: 14px; }
         .db-modal-foot { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
         .db-field { display: flex; flex-direction: column; gap: 6px; }
         .db-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .db-label { font-size: 9px; color: var(--text-2); letter-spacing: 0.14em; text-transform: uppercase; }
-        .db-select, .db-input, .db-textarea { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; outline: none; width: 100%; transition: border-color 0.15s; }
+        .db-label { font-size: 13px; color: var(--text-2); letter-spacing: 0.14em; text-transform: uppercase; }
+        .db-select, .db-input, .db-textarea { font-family: 'DM Mono', monospace; font-size: 16px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; outline: none; width: 100%; transition: border-color 0.15s; }
         .db-select:focus, .db-input:focus, .db-textarea:focus { border-color: var(--accent); }
         .db-textarea { resize: vertical; min-height: 72px; }
+        .db-amount-row { display: flex; gap: 8px; }
+        .db-amount-row .db-select { width: 92px; flex-shrink: 0; }
         .db-err { font-size: 11px; color: var(--badge-red-tx); }
         .db-btn-secondary { height: 36px; padding: 0 16px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.04em; background: none; border: 1px solid var(--border); color: var(--text-2); cursor: pointer; transition: all 0.15s; }
         .db-btn-secondary:hover { color: var(--text); border-color: var(--text-2); }
@@ -328,7 +375,7 @@ const handleSubmit = async () => {
         }
         @media (max-width: 480px) {
           .db-stats { grid-template-columns: 1fr 1fr; gap: 10px; }
-          .db-stat-value { font-size: 18px; }
+          .db-stat-value { font-size: 22px; }
           .db-field-row { grid-template-columns: 1fr; }
         }
       `}</style>
@@ -352,14 +399,28 @@ const handleSubmit = async () => {
             {/* Stat cards */}
             <div className="db-stats">
               {[
-                { label: 'Total expenses',    value: loading ? '—' : fmt(totalAll),                           sub: 'All time' },
-                { label: 'This month',        value: loading ? '—' : fmt(totalMonth),                         sub: new Date().toLocaleString('en-KE', { month: 'long' }) },
-                { label: 'Total records',     value: loading ? '—' : String(expenses.length),                  sub: 'Expense entries' },
-                { label: 'Categories used',   value: loading ? '—' : String(byCat.length),                    sub: `of ${CATEGORIES.length} available` },
-              ].map(({ label, value, sub }) => (
+                {
+                  label: 'Total expenses',
+                  value: loading ? '—' : (Object.keys(totalAllByCurrency).length === 0
+                    ? fmt(0)
+                    : Object.entries(totalAllByCurrency).map(([cur, amt]) => fmt(amt, cur)).join(' · ')),
+                  sub: 'All time, by currency',
+                  multi: true,
+                },
+                {
+                  label: 'This month',
+                  value: loading ? '—' : (Object.keys(totalMonthByCurrency).length === 0
+                    ? fmt(0)
+                    : Object.entries(totalMonthByCurrency).map(([cur, amt]) => fmt(amt, cur)).join(' · ')),
+                  sub: new Date().toLocaleString('en-KE', { month: 'long' }),
+                  multi: true,
+                },
+                { label: 'Total records',     value: loading ? '—' : String(expenses.length),                  sub: 'Expense entries', multi: false },
+                { label: 'Categories used',   value: loading ? '—' : String(byCat.length),                    sub: `in ${breakdownCurrency}`, multi: false },
+              ].map(({ label, value, sub, multi }) => (
                 <div key={label} className="db-stat" style={{ opacity: mounted ? 1 : 0 }}>
                   <div className="db-stat-label">{label}</div>
-                  <div className="db-stat-value">{value}</div>
+                  <div className={`db-stat-value ${multi ? 'db-stat-value-multi' : ''}`}>{value}</div>
                   <div className="db-stat-sub">{sub}</div>
                 </div>
               ))}
@@ -436,7 +497,10 @@ const handleSubmit = async () => {
                             {exp.visit_full_name || `Visit #${exp.visit_id}`}
                           </td>
                           <td className="db-td db-td-mono">{fmtDate(exp.expense_date)}</td>
-                          <td className="db-td db-td-r" style={{ fontWeight: 750 }}>{fmt(exp.amount)}</td>
+                          <td className="db-td db-td-r" style={{ fontWeight: 750 }}>
+                            {fmt(exp.amount, exp.currency)}
+                            <span className="db-cur-badge">{exp.currency || DEFAULT_CURRENCY}</span>
+                          </td>
                           <td className="db-td" style={{ textAlign: 'right', paddingRight: '16px' }}>
                             <button className="db-del-btn" disabled={deleteId === exp.id} onClick={() => handleDelete(exp.id)} title="Delete">
                               {deleteId === exp.id
@@ -456,13 +520,24 @@ const handleSubmit = async () => {
               <div className="db-card" style={{ alignSelf: 'start' }}>
                 <div className="db-card-head">
                   <span className="db-card-title">By category</span>
+                  <div className="db-cur-toggle">
+                    {CURRENCIES.filter(c => breakdownCurrencyOptions.includes(c.code)).map(c => (
+                      <button
+                        key={c.code}
+                        className={`db-cur-toggle-btn ${breakdownCurrency === c.code ? 'active' : ''}`}
+                        onClick={() => setBreakdownCurrency(c.code)}
+                      >
+                        {c.code}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 {loading ? (
                   <div style={{ padding: '20px' }}>
                     {[1,2,3,4].map(i => <div key={i} className="db-skel" style={{ marginBottom: '14px' }} />)}
                   </div>
                 ) : byCat.length === 0 ? (
-                  <div className="db-empty">No data yet</div>
+                  <div className="db-empty">No {breakdownCurrency} expenses yet</div>
                 ) : (
                   <div style={{ padding: '8px 0' }}>
                     {byCat.map(({ cat, total, count }) => (
@@ -471,12 +546,12 @@ const handleSubmit = async () => {
                         <div className="db-expbar-track">
                           <div className="db-expbar-fill" style={{ width: `${(total / maxCat) * 100}%`, background: CAT_COLORS[cat] }} />
                         </div>
-                        <div className="db-expbar-val">{fmt(total)}</div>
+                        <div className="db-expbar-val">{fmt(total, breakdownCurrency)}</div>
                       </div>
                     ))}
                     <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ fontSize: '15px', color: 'var(--text-3)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Grand total</div>
-                      <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '16px', fontWeight: 700, color: 'var(--accent)', letterSpacing: '-0.4px' }}>{fmt(totalAll)}</div>
+                      <div style={{ fontSize: '15px', color: 'var(--text-3)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Total ({breakdownCurrency})</div>
+                      <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '16px', fontWeight: 700, color: 'var(--accent)', letterSpacing: '-0.4px' }}>{fmt(breakdownTotal, breakdownCurrency)}</div>
                     </div>
                   </div>
                 )}
@@ -544,8 +619,20 @@ const handleSubmit = async () => {
                   </select>
                 </div>
                 <div className="db-field">
-                  <label className="db-label">Amount (KES) *</label>
-                  <input className="db-input" type="number" min="0" step="0.01" placeholder="0.00" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
+                  <label className="db-label">Amount *</label>
+                  <div className="db-amount-row">
+                    <select
+                      className="db-select"
+                      value={form.currency}
+                      onChange={e => setForm(f => ({ ...f, currency: e.target.value }))}
+                      title="Currency"
+                    >
+                      {CURRENCIES.map(c => (
+                        <option key={c.code} value={c.code}>{c.code}</option>
+                      ))}
+                    </select>
+                    <input className="db-input" type="number" min="0" step="0.01" placeholder="0.00" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
+                  </div>
                 </div>
               </div>
 
