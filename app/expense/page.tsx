@@ -287,7 +287,7 @@ const handleSubmit = async () => {
         .db-search input::placeholder { color: var(--text-3); }
 
         .db-cat-scroll { display: flex; gap: 6px; flex-wrap: wrap; }
-        .db-cat-chip { height: 30px; padding: 0 12px; border-radius: 20px; font-family: 'DM Mono', monospace; font-size: 19px; letter-spacing: 0.04em; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; transition: all 0.15s; text-transform: capitalize; white-space: nowrap; }
+        .db-cat-chip { height: 30px; padding: 0 12px; border-radius: 20px; font-family: 'DM Mono', monospace; font-size: 15px; letter-spacing: 0.04em; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; transition: all 0.15s; text-transform: capitalize; white-space: nowrap; }
         .db-cat-chip:hover { color: var(--text); }
         .db-cat-chip.active { color: #fff; border-color: transparent; }
 
