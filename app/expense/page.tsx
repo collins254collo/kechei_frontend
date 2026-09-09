@@ -106,7 +106,9 @@ const load = () => {
     fetchActiveVisits(),
   ]).then(([e, v]) => {
     if (e.status === 'fulfilled') {
-      setExpenses(e.value.map(expense => ({ ...expense, currency: DEFAULT_CURRENCY })));
+      // IMPORTANT: use the currency the API actually returned for each expense.
+      // Only fall back to DEFAULT_CURRENCY if a record has none set (e.g. legacy rows).
+      setExpenses(e.value.map((expense: Expense) => ({ ...expense, currency: expense.currency || DEFAULT_CURRENCY })));
     }
     if (v.status === 'fulfilled') setVisits(v.value as Visit[]);
   }).finally(() => setLoading(false));
@@ -129,6 +131,7 @@ const load = () => {
     return matchCat && matchSearch;
   });
 
+  // Totals are kept per-currency rather than summed together, since adding
   // e.g. USD + KES amounts directly would produce a meaningless number.
   const totalAllByCurrency = groupSumByCurrency(expenses);
   const totalMonthByCurrency = groupSumByCurrency(expenses.filter(e => {
@@ -182,6 +185,7 @@ const handleSubmit = async () => {
       visit_id: Number(form.visit_id),
       category: form.category,
       amount: Number(form.amount),
+      currency: form.currency, 
       expense_date: form.expense_date,
       description: form.description || undefined,
     });

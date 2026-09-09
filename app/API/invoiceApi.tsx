@@ -16,6 +16,8 @@ const getHeaders = (): Record<string, string> => {
 
 // Types
 export interface Invoice {
+  currency: string;
+  invoices: never[];
   id: number;
   invoice_number: string;
   client_id: number;
@@ -67,12 +69,14 @@ export type CreateManualInvoicePayload = {
   description: string;
   due_date?: string;
   notes?: string;
+  currency: string;
 } & (
   | { client_id: number; client_name?: never; client_email?: never; client_phone?: never }
   | { client_id?: never; client_name: string; client_email: string; client_phone?: string }
 );
 
 export interface UnbilledPreview {
+  unbilled: never[];
   client_id: number;
   total_expenses: number;
 }

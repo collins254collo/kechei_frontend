@@ -32,6 +32,7 @@ export interface CreateExpensePayload {
   amount: number;
   expense_date: string;
   description?: string;
+  currency: string;
 }
 
 export interface UpdateExpensePayload {

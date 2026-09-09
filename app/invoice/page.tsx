@@ -29,6 +29,7 @@ interface Invoice {
   final_amount: number;   
   paid_amount?: number;
   total_expenses: number;
+  currency: string; // 'KES' | 'USD' | 'EUR'
   description?: string;
   status: 'unpaid' | 'partial' | 'paid';
   issued_date: string;
@@ -40,13 +41,37 @@ type SortKey = 'issued_date' | 'final_amount';
 type SortDir = 'asc' | 'desc';
 type InvoiceMode = 'auto' | 'manual';
 type ManualClientMode = 'existing' | 'new';
+type UnbilledEntry = { currency: string; total: number };
 
 const STATUS_FILTERS = ['all', 'unpaid', 'partial', 'paid'] as const;
 type StatusFilter = typeof STATUS_FILTERS[number];
 
-function fmt(n: number) {
-  return `KES ${Number(n || 0).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+//  Currency 
+interface CurrencyMeta { code: string; symbol: string; label: string; }
+const CURRENCIES: CurrencyMeta[] = [
+  { code: 'KES', symbol: 'KES', label: 'Kenyan Shilling' },
+  { code: 'USD', symbol: '$',   label: 'US Dollar' },
+  { code: 'EUR', symbol: '€',   label: 'Euro' },
+];
+const DEFAULT_CURRENCY = 'KES';
+
+function currencyMeta(code: string) {
+  return CURRENCIES.find(c => c.code === code) || CURRENCIES[0];
 }
+
+function fmt(n: number, currency: string = DEFAULT_CURRENCY) {
+  const meta = currencyMeta(currency);
+  return `${meta.symbol} ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function groupSumByCurrency(list: Invoice[], pick: (inv: Invoice) => number) {
+  return list.reduce((acc, inv) => {
+    const cur = inv.currency || DEFAULT_CURRENCY;
+    acc[cur] = (acc[cur] || 0) + pick(inv);
+    return acc;
+  }, {} as Record<string, number>);
+}
+
 function fmtDate(d: string) { if (!d) return '—'; return new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }); }
 function isOverdue(inv: Invoice) {
   if (inv.status === 'paid' || !inv.due_date) return false;
@@ -94,14 +119,16 @@ export default function InvoicesPage() {
   const [form, setForm] = useState({
     client_id: '', due_date: '', notes: '',
   });
-  const [previewAmount, setPreviewAmount] = useState<number | null>(null);
+  // Unbilled total, grouped by currency — a client can have unbilled expenses
+  // in more than one currency, so this is a list, not a single number.
+  const [previewAmount, setPreviewAmount] = useState<UnbilledEntry[] | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewErr, setPreviewErr] = useState('');
 
-  // Manual invoice form — admin enters amount + description, and either
+  // Manual invoice form — admin enters amount + currency + description, and either
   const [manualForm, setManualForm] = useState({
     client_id: '', client_name: '', client_email: '', client_phone: '',
-    amount: '', description: '', due_date: '', notes: '',
+    amount: '', currency: DEFAULT_CURRENCY, description: '', due_date: '', notes: '',
   });
 
   // PDF preview + send state (detail modal)
@@ -118,7 +145,9 @@ export default function InvoicesPage() {
       fetchInvoices(),
       fetchClients(),
     ]).then(([inv, cl]) => {
-      if (inv.status === 'fulfilled') setInvoices(inv.value);
+      if (inv.status === 'fulfilled') {
+        setInvoices(inv.value.map(invoice => ({ ...invoice, currency: DEFAULT_CURRENCY })));
+      }
       else { console.error('invoices failed:', inv.reason); pushToast('Failed to load invoices', 'error'); }
       if (cl.status === 'fulfilled')  setClients(cl.value);
       else { console.error('clients failed:', cl.reason); pushToast('Failed to load clients', 'error'); }
@@ -159,10 +188,22 @@ export default function InvoicesPage() {
   const hasAnyInvoices = invoices.length > 0;
   const hasActiveFilters = search.trim() !== '' || statusFilter !== 'all';
 
-   const totalRevenue = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.final_amount), 0);
-   const outstanding  = invoices.filter(i => i.status !== 'paid').reduce((s, i) => s + Number(i.final_amount), 0);
+  // Totals are kept per-currency rather than summed together, since adding
+  // e.g. USD + KES amounts directly would produce a meaningless number.
+  const revenueByCurrency     = groupSumByCurrency(invoices.filter(i => i.status === 'paid'), i => Number(i.final_amount));
+  const outstandingByCurrency = groupSumByCurrency(invoices.filter(i => i.status !== 'paid'), i => Number(i.final_amount));
+  const invoicedByCurrency: Record<string, number> = {};
+  for (const cur of new Set([...Object.keys(revenueByCurrency), ...Object.keys(outstandingByCurrency)])) {
+    invoicedByCurrency[cur] = (revenueByCurrency[cur] || 0) + (outstandingByCurrency[cur] || 0);
+  }
   const paidCount    = invoices.filter(i => i.status === 'paid').length;
   const unpaidCount  = invoices.filter(i => i.status === 'unpaid').length;
+
+  function fmtByCurrency(byCurrency: Record<string, number>) {
+    const entries = Object.entries(byCurrency);
+    if (entries.length === 0) return fmt(0);
+    return entries.map(([cur, amt]) => fmt(amt, cur)).join(' · ');
+  }
 
   const statusColor = (s: string) => {
     if (s === 'paid')    return 'var(--badge-green-tx)';
@@ -185,7 +226,7 @@ export default function InvoicesPage() {
   };
   const sortArrow = (key: SortKey) => sortKey !== key ? '' : (sortDir === 'asc' ? ' ↑' : ' ↓');
 
-  //  New invoice: client select -> auto-fetch unbilled preview 
+  //  New invoice: client select -> auto-fetch unbilled preview (per currency) 
   const handleClientSelect = async (clientId: string) => {
     setForm(f => ({ ...f, client_id: clientId }));
     setPreviewAmount(null);
@@ -197,7 +238,8 @@ export default function InvoicesPage() {
     setPreviewLoading(true);
     try {
       const result = await previewUnbilledByClient(Number(clientId));
-      setPreviewAmount(result.total_expenses);
+      // result.unbilled is an array of { currency, total } — see previewByClient fix on the backend
+      setPreviewAmount(result.unbilled || []);
     } catch (err: any) {
       setPreviewErr(err.message || 'Could not load unbilled total for this client.');
     } finally {
@@ -205,11 +247,13 @@ export default function InvoicesPage() {
     }
   };
 
+  const hasBillableUnbilled = (previewAmount || []).some(p => p.total > 0);
+
   const resetNewInvoiceForm = () => {
     setInvMode('auto');
     setManualClientMode('existing');
     setForm({ client_id: '', due_date: '', notes: '' });
-    setManualForm({ client_id: '', client_name: '', client_email: '', client_phone: '', amount: '', description: '', due_date: '', notes: '' });
+    setManualForm({ client_id: '', client_name: '', client_email: '', client_phone: '', amount: '', currency: DEFAULT_CURRENCY, description: '', due_date: '', notes: '' });
     setPreviewAmount(null);
     setPreviewErr('');
     setFormErr('');
@@ -231,6 +275,7 @@ export default function InvoicesPage() {
       setFormErr('Please enter a valid amount greater than zero.');
       return;
     }
+    if (!manualForm.currency) { setFormErr('Please select a currency.'); return; }
     if (!manualForm.description.trim()) { setFormErr('Please add a short description for this invoice.'); return; }
 
     setSubmitting(true);
@@ -241,6 +286,7 @@ export default function InvoicesPage() {
           ? {
               client_id: Number(manualForm.client_id),
               amount: amountNum,
+              currency: manualForm.currency,
               description: manualForm.description.trim(),
               ...(manualForm.due_date && { due_date: manualForm.due_date }),
               ...(manualForm.notes && { notes: manualForm.notes }),
@@ -250,6 +296,7 @@ export default function InvoicesPage() {
               client_email: manualForm.client_email.trim(),
               ...(manualForm.client_phone.trim() && { client_phone: manualForm.client_phone.trim() }),
               amount: amountNum,
+              currency: manualForm.currency,
               description: manualForm.description.trim(),
               ...(manualForm.due_date && { due_date: manualForm.due_date }),
               ...(manualForm.notes && { notes: manualForm.notes }),
@@ -261,7 +308,11 @@ export default function InvoicesPage() {
         ? clients.find(c => c.id === Number(manualForm.client_id))?.full_name
         : manualForm.client_name.trim();
 
-      setInvoices(prev => [{ ...data, full_name: data.full_name ?? fallbackName }, ...prev]);
+      setInvoices(prev => [{
+        ...data,
+        currency: data.currency ?? manualForm.currency,
+        full_name: data.full_name ?? fallbackName,
+      }, ...prev]);
       if (manualClientMode === 'new') {
         fetchClients().then(setClients).catch(() => {});
       }
@@ -278,12 +329,14 @@ export default function InvoicesPage() {
 
   if (!form.client_id) { setFormErr('Please select a client.'); return; }
   if (previewAmount === null) { setFormErr('Still checking unbilled expenses — try again in a moment.'); return; }
-  if (previewAmount <= 0) { setFormErr('This client has no unbilled expenses to invoice.'); return; }
+  if (!hasBillableUnbilled) { setFormErr('This client has no unbilled expenses to invoice.'); return; }
 
   setSubmitting(true);
   setFormErr('');
 
   try {
+    // May generate more than one invoice — one per currency the client has
+    // unbilled expenses in — so the response is always { invoices: [...] }.
     const data = await generateInvoiceFromClient({
       client_id: Number(form.client_id),
       ...(form.due_date && { due_date: form.due_date }),
@@ -291,10 +344,17 @@ export default function InvoicesPage() {
     });
 
     const client = clients.find(c => c.id === Number(form.client_id));
-    setInvoices(prev => [{ ...data, full_name: data.full_name ?? client?.full_name }, ...prev]);
+    const newInvoices: Invoice[] = (data.invoices || []).map((inv: Invoice) => ({ ...inv, full_name: inv.full_name ?? client?.full_name }));
+
+    setInvoices(prev => [...newInvoices, ...prev]);
     setShowModal(false);
     resetNewInvoiceForm();
-    pushToast(`Invoice ${data.invoice_number} generated`, 'success');
+    pushToast(
+      newInvoices.length === 1
+        ? `Invoice ${newInvoices[0].invoice_number} generated`
+        : `${newInvoices.length} invoices generated (${newInvoices.map(i => i.invoice_number).join(', ')})`,
+      'success'
+    );
   } catch (err: any) {
     setFormErr(err.message || 'Network error. Try again.');
   } finally {
@@ -438,7 +498,8 @@ export default function InvoicesPage() {
         .db-stat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent); opacity: 0.4; }
         .db-stat:first-child::before { opacity: 1; }
         .db-stat-label { font-size: 15px; color: var(--text-2); letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 10px; }
-        .db-stat-value { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.8px; line-height: 1; }
+        .db-stat-value { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.8px; line-height: 1.25; }
+        .db-stat-value.db-stat-value-multi { font-size: 15px; }
         .db-stat-sub { font-size: 15px; color: var(--text-3); margin-top: 6px; }
 
         .db-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; animation: db-up 0.5s ease 0.1s both; }
@@ -477,6 +538,8 @@ export default function InvoicesPage() {
         .db-td-r { text-align: right; }
         .db-td-mono { font-size: 15px; color: var(--text-2); font-family: 'DM Mono', monospace; }
 
+        .db-cur-badge { display: inline-block; font-size: 10px; letter-spacing: 0.06em; color: var(--text-3); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; margin-left: 6px; vertical-align: middle; }
+
         .db-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 5px; font-size: 15px; font-weight: 500; letter-spacing: 0.04em; text-transform: capitalize; }
         .db-badge::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.7; }
 
@@ -513,6 +576,8 @@ export default function InvoicesPage() {
         .db-select, .db-input, .db-textarea { font-family: 'DM Mono', monospace; font-size: 15px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; outline: none; width: 100%; transition: border-color 0.15s; }
         .db-select:focus, .db-input:focus, .db-textarea:focus { border-color: var(--accent); }
         .db-textarea { resize: vertical; min-height: 72px; }
+        .db-amount-row { display: flex; gap: 8px; }
+        .db-amount-row .db-select { width: 92px; flex-shrink: 0; }
         .db-err { font-size: 15px; color: var(--badge-red-tx); background: var(--badge-red-bg); padding: 8px 12px; border-radius: 6px; }
         .db-btn-secondary { height: 36px; padding: 0 16px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 16px; letter-spacing: 0.04em; background: none; border: 1px solid var(--border); color: var(--text-2); cursor: pointer; transition: all 0.15s; }
         .db-btn-secondary:hover { color: var(--text); border-color: var(--text-2); }
@@ -527,9 +592,11 @@ export default function InvoicesPage() {
 
         .db-hint { font-size: 14px; color: var(--text-3); padding: 8px 12px; background: var(--surface-2); border-radius: 6px; border: 1px solid var(--border); }
 
-        .db-preview-box { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; }
+        .db-preview-box { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; }
         .db-preview-label { font-size: 13px; color: var(--text-2); letter-spacing: 0.14em; text-transform: uppercase; }
-        .db-preview-value { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: var(--accent); margin-top: 4px; }
+        .db-preview-row { display: flex; align-items: center; justify-content: space-between; }
+        .db-preview-value { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: var(--accent); }
+        .db-preview-cur { font-size: 12px; color: var(--text-3); letter-spacing: 0.06em; }
 
         .db-mode-toggle { display: flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 3px; }
         .db-mode-btn { flex: 1; height: 32px; border-radius: 6px; font-family: 'DM Mono', monospace; font-size: 14px; letter-spacing: 0.04em; border: none; background: none; color: var(--text-2); cursor: pointer; transition: all 0.15s; }
@@ -601,14 +668,14 @@ export default function InvoicesPage() {
             {/* Stat cards */}
             <div className="db-stats">
               {[
-                { label: 'Revenue collected', value: loading ? '—' : fmt(totalRevenue),             sub: `${paidCount} paid invoice${paidCount !== 1 ? 's' : ''}` },
-                { label: 'Outstanding',        value: loading ? '—' : fmt(outstanding),              sub: `${unpaidCount} unpaid` },
-                { label: 'Total invoiced',     value: loading ? '—' : fmt(totalRevenue + outstanding), sub: 'All time' },
-                { label: 'Total invoices',     value: loading ? '—' : String(invoices.length),       sub: 'All records' },
-              ].map(({ label, value, sub }) => (
+                { label: 'Revenue collected', value: loading ? '—' : fmtByCurrency(revenueByCurrency),     sub: `${paidCount} paid invoice${paidCount !== 1 ? 's' : ''}`, multi: true },
+                { label: 'Outstanding',        value: loading ? '—' : fmtByCurrency(outstandingByCurrency), sub: `${unpaidCount} unpaid`, multi: true },
+                { label: 'Total invoiced',     value: loading ? '—' : fmtByCurrency(invoicedByCurrency),    sub: 'All time, by currency', multi: true },
+                { label: 'Total invoices',     value: loading ? '—' : String(invoices.length),              sub: 'All records', multi: false },
+              ].map(({ label, value, sub, multi }) => (
                 <div key={label} className="db-stat" style={{ opacity: mounted ? 1 : 0 }}>
                   <div className="db-stat-label">{label}</div>
-                  <div className="db-stat-value">{value}</div>
+                  <div className={`db-stat-value ${multi ? 'db-stat-value-multi' : ''}`}>{value}</div>
                   <div className="db-stat-sub">{sub}</div>
                 </div>
               ))}
@@ -716,7 +783,10 @@ export default function InvoicesPage() {
                               </div>
                             ) : <span style={{ color: 'var(--text-3)' }}>—</span>}
                           </td>
-                          <td className="db-td db-td-r" style={{ fontWeight: 600 }}>{fmt(inv.final_amount)}</td>
+                          <td className="db-td db-td-r" style={{ fontWeight: 600 }}>
+                            {fmt(inv.final_amount, inv.currency)}
+                            <span className="db-cur-badge">{inv.currency || DEFAULT_CURRENCY}</span>
+                          </td>
                           <td className="db-td">
                             <span className="db-badge" style={{ color: statusColor(inv.status), background: statusBg(inv.status) }}>{inv.status}</span>
                           </td>
@@ -804,14 +874,18 @@ export default function InvoicesPage() {
 
                   {form.client_id && (
                     <div className="db-preview-box">
-                      <div>
-                        <div className="db-preview-label">Unbilled total</div>
-                        <div className="db-preview-value">
-                          {previewLoading ? '…' : previewAmount !== null ? fmt(previewAmount) : '—'}
-                        </div>
-                      </div>
-                      {!previewLoading && previewAmount === 0 && (
-                        <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>Nothing to invoice</span>
+                      <div className="db-preview-label">Unbilled total{previewAmount && previewAmount.length > 1 ? ' (one invoice per currency)' : ''}</div>
+                      {previewLoading ? (
+                        <div className="db-preview-value">…</div>
+                      ) : !previewAmount || previewAmount.length === 0 ? (
+                        <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>Nothing to invoice</div>
+                      ) : (
+                        previewAmount.map(p => (
+                          <div key={p.currency} className="db-preview-row">
+                            <span className="db-preview-cur">{p.currency}</span>
+                            <span className="db-preview-value">{fmt(p.total, p.currency)}</span>
+                          </div>
+                        ))
                       )}
                     </div>
                   )}
@@ -824,7 +898,7 @@ export default function InvoicesPage() {
                     </div>
                     <div className="db-field">
                       <label className="db-label">&nbsp;</label>
-                      <div className="db-hint">Amount and issue date are set automatically.</div>
+                      <div className="db-hint">Amount, currency, and issue date are set automatically.</div>
                     </div>
                   </div>
 
@@ -906,16 +980,28 @@ export default function InvoicesPage() {
 
                   <div className="db-field-row">
                     <div className="db-field">
-                      <label className="db-label">Amount (KES) *</label>
-                      <input
-                        className="db-input"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={manualForm.amount}
-                        onChange={e => setManualForm(f => ({ ...f, amount: e.target.value }))}
-                      />
+                      <label className="db-label">Amount *</label>
+                      <div className="db-amount-row">
+                        <select
+                          className="db-select"
+                          value={manualForm.currency}
+                          onChange={e => setManualForm(f => ({ ...f, currency: e.target.value }))}
+                          title="Currency"
+                        >
+                          {CURRENCIES.map(c => (
+                            <option key={c.code} value={c.code}>{c.code}</option>
+                          ))}
+                        </select>
+                        <input
+                          className="db-input"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={manualForm.amount}
+                          onChange={e => setManualForm(f => ({ ...f, amount: e.target.value }))}
+                        />
+                      </div>
                     </div>
                     <div className="db-field">
                       <label className="db-label">Due date (optional)</label>
@@ -954,7 +1040,7 @@ export default function InvoicesPage() {
                 <button
                   className="db-btn-primary"
                   onClick={handleSubmit}
-                  disabled={submitting || previewLoading || !form.client_id || !previewAmount}
+                  disabled={submitting || previewLoading || !form.client_id || !hasBillableUnbilled}
                   style={{ margin: 0 }}
                 >
                   {submitting ? 'Generating…' : 'Generate invoice'}
@@ -966,6 +1052,7 @@ export default function InvoicesPage() {
                   disabled={
                     submitting ||
                     !manualForm.amount ||
+                    !manualForm.currency ||
                     !manualForm.description.trim() ||
                     (manualClientMode === 'existing' ? !manualForm.client_id : (!manualForm.client_name.trim() || !manualForm.client_email.trim()))
                   }
@@ -987,6 +1074,7 @@ export default function InvoicesPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span className="db-modal-title">Invoice</span>
                 <span className="db-inv-number">{detailInv.invoice_number}</span>
+                <span className="db-cur-badge">{detailInv.currency || DEFAULT_CURRENCY}</span>
               </div>
               <div className="db-pdf-toolbar">
                 {pdfUrl && !pdfLoading && (
@@ -1029,16 +1117,16 @@ export default function InvoicesPage() {
                   )}
                   <div className="db-detail-row">
                     <span className="db-detail-key">Subtotal (excl. VAT)</span>
-                    <span className="db-detail-val">{fmt(detailInv.total_amount)}</span>
+                    <span className="db-detail-val">{fmt(detailInv.total_amount, detailInv.currency)}</span>
                   </div>
                   <div className="db-detail-row">
                     <span className="db-detail-key">Total due (incl. VAT)</span>
-                    <span className="db-detail-val" style={{ fontFamily: 'Syne, sans-serif', fontSize: '16px', color: 'var(--accent)' }}>{fmt(detailInv.final_amount)}</span>
+                    <span className="db-detail-val" style={{ fontFamily: 'Syne, sans-serif', fontSize: '16px', color: 'var(--accent)' }}>{fmt(detailInv.final_amount, detailInv.currency)}</span>
                   </div>
                   {detailInv.total_expenses > 0 && (
                     <div className="db-detail-row">
                       <span className="db-detail-key">Total expenses</span>
-                      <span className="db-detail-val">{fmt(detailInv.total_expenses)}</span>
+                      <span className="db-detail-val">{fmt(detailInv.total_expenses, detailInv.currency)}</span>
                     </div>
                   )}
                   <div className="db-detail-row">
