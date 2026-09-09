@@ -10,14 +10,56 @@ import Sidebar from '../sidebar';
 
 // Types
 interface User { id: number; name: string; email: string; role: string; }
-interface Invoice { id: number; invoice_number: string; full_name: string; total_amount: number; total_expenses: number; status: 'unpaid' | 'partial' | 'paid'; issued_date: string; }
+interface Invoice {
+  id: number;
+  invoice_number: string;
+  full_name: string;
+  total_amount: number;
+  total_expenses: number;
+  currency: string; // 'KES' | 'USD' | 'EUR'
+  status: 'unpaid' | 'partial' | 'paid';
+  issued_date: string;
+}
 
 interface EnrichedVisit extends Visit {
   client_name: string;
   client_phone: string;
 }
 
-function fmt(n: number) { return `KES ${Number(n).toLocaleString()}`; }
+//  Currency  (mirrors the invoice page so amounts read consistently across the app)
+interface CurrencyMeta { code: string; symbol: string; label: string; }
+const CURRENCIES: CurrencyMeta[] = [
+  { code: 'KES', symbol: 'KES', label: 'Kenyan Shilling' },
+  { code: 'USD', symbol: '$',   label: 'US Dollar' },
+  { code: 'EUR', symbol: '€',   label: 'Euro' },
+];
+const DEFAULT_CURRENCY = 'KES';
+
+function currencyMeta(code: string) {
+  return CURRENCIES.find(c => c.code === code) || CURRENCIES[0];
+}
+
+function fmt(n: number, currency: string = DEFAULT_CURRENCY) {
+  const meta = currencyMeta(currency);
+  return `${meta.symbol} ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+// Sums a list of invoices, keyed by currency, using the given picker fn.
+// Kept separate rather than added together — KES + USD summed directly
+// would produce a meaningless number.
+function groupSumByCurrency(list: Invoice[], pick: (inv: Invoice) => number) {
+  return list.reduce((acc, inv) => {
+    const cur = inv.currency || DEFAULT_CURRENCY;
+    acc[cur] = (acc[cur] || 0) + pick(inv);
+    return acc;
+  }, {} as Record<string, number>);
+}
+
+function fmtByCurrency(byCurrency: Record<string, number>) {
+  const entries = Object.entries(byCurrency);
+  if (entries.length === 0) return fmt(0);
+  return entries.map(([cur, amt]) => fmt(amt, cur)).join(' · ');
+}
 
 function formatDate(dateString: string | undefined) {
   if (!dateString) return '—';
@@ -137,7 +179,8 @@ export default function DashboardPage() {
       }
 
       if (invoicesResult.status === 'fulfilled' && Array.isArray(invoicesResult.value)) {
-        setInvoices(invoicesResult.value);
+        // Default missing currency to KES so older records without the field don't break grouping
+        setInvoices(invoicesResult.value.map((inv: Invoice) => ({ ...inv, currency: inv.currency || DEFAULT_CURRENCY })));
       } else {
         setInvoices([]);
       }
@@ -154,11 +197,26 @@ export default function DashboardPage() {
     router.push('/login');
   };
 
-  // Derived stats
-  const totalRevenue = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.total_amount), 0);
-  const outstanding = invoices.filter(i => i.status !== 'paid').reduce((s, i) => s + Number(i.total_amount), 0);
+  // Derived stats — totals kept per-currency rather than summed together
+  const revenueByCurrency     = groupSumByCurrency(invoices.filter(i => i.status === 'paid'), i => Number(i.total_amount));
+  const outstandingByCurrency = groupSumByCurrency(invoices.filter(i => i.status !== 'paid'), i => Number(i.total_amount));
+  const invoicedByCurrency: Record<string, number> = {};
+  for (const cur of new Set([...Object.keys(revenueByCurrency), ...Object.keys(outstandingByCurrency)])) {
+    invoicedByCurrency[cur] = (revenueByCurrency[cur] || 0) + (outstandingByCurrency[cur] || 0);
+  }
   const unpaidCount = invoices.filter(i => i.status === 'unpaid').length;
   const activeVisits = visits.filter(v => v.status === 'active').length;
+
+  // Currencies actually present in the invoice list, used to drive the
+  // per-currency breakdown in the "Revenue overview" card below.
+  const currenciesPresent = Array.from(new Set(invoices.map(i => i.currency || DEFAULT_CURRENCY)));
+
+  function statusSumsForCurrency(cur: string) {
+    const collected = invoices.filter(i => i.status === 'paid' && (i.currency || DEFAULT_CURRENCY) === cur).reduce((s, i) => s + Number(i.total_amount), 0);
+    const partial   = invoices.filter(i => i.status === 'partial' && (i.currency || DEFAULT_CURRENCY) === cur).reduce((s, i) => s + Number(i.total_amount), 0);
+    const unpaid    = invoices.filter(i => i.status === 'unpaid' && (i.currency || DEFAULT_CURRENCY) === cur).reduce((s, i) => s + Number(i.total_amount), 0);
+    return { collected, partial, unpaid, grand: (collected + partial + unpaid) || 1 };
+  }
 
   const statusColor = (s: string) => {
     if (s === 'paid' || s === 'completed') return 'var(--badge-green-tx)';
@@ -368,8 +426,10 @@ export default function DashboardPage() {
         .db-stat-value {
           font-family: 'Syne', sans-serif;
           font-size: 22px; font-weight: 700;
-          color: var(--text); letter-spacing: -0.8px; line-height: 1;
+          color: var(--text); letter-spacing: -0.8px; line-height: 1.25;
         }
+
+        .db-stat-value.db-stat-value-multi { font-size: 15px; }
 
         .db-stat-sub {
           font-size: 14px; color: var(--text-3); margin-top: 6px;
@@ -441,6 +501,13 @@ export default function DashboardPage() {
         .db-td-r { text-align: right; }
         .db-td-mono { font-size: 11px; color: var(--text-2); }
 
+        /* ── Currency badge ── */
+        .db-cur-badge {
+          display: inline-block; font-size: 10px; letter-spacing: 0.06em;
+          color: var(--text-3); border: 1px solid var(--border); border-radius: 4px;
+          padding: 1px 5px; margin-left: 6px; vertical-align: middle;
+        }
+
         /* ── Badge ── */
         .db-badge {
           display: inline-flex; align-items: center; gap: 4px;
@@ -495,6 +562,11 @@ export default function DashboardPage() {
         .db-expbar-val {
           font-size: 15px; color: var(--text-2); width: 80px;
           text-align: right; flex-shrink: 0;
+        }
+
+        .db-currency-group-label {
+          padding: 10px 20px 0; font-size: 13px; color: var(--text-3);
+          letter-spacing: 0.08em; text-transform: uppercase;
         }
 
         /* ── Entrance animations ── */
@@ -567,14 +639,14 @@ export default function DashboardPage() {
             {/* Stat cards */}
             <div className="db-stats">
               {[
-                { label: 'Active visits', value: loading ? '—' : String(activeVisits), sub: 'Currently on site' },
-                { label: 'Total revenue', value: loading ? '—' : fmt(totalRevenue), sub: 'From paid invoices' },
-                { label: 'Outstanding', value: loading ? '—' : fmt(outstanding), sub: `${unpaidCount} unpaid invoice${unpaidCount !== 1 ? 's' : ''}` },
-                { label: 'Total invoices', value: loading ? '—' : String(invoices.length), sub: 'All time' },
-              ].map(({ label, value, sub }) => (
+                { label: 'Active visits', value: loading ? '—' : String(activeVisits), sub: 'Currently on site', multi: false },
+                { label: 'Total revenue', value: loading ? '—' : fmtByCurrency(revenueByCurrency), sub: 'From paid invoices', multi: true },
+                { label: 'Outstanding', value: loading ? '—' : fmtByCurrency(outstandingByCurrency), sub: `${unpaidCount} unpaid invoice${unpaidCount !== 1 ? 's' : ''}`, multi: true },
+                { label: 'Total invoices', value: loading ? '—' : String(invoices.length), sub: 'All time', multi: false },
+              ].map(({ label, value, sub, multi }) => (
                 <div key={label} className="db-stat" style={{ opacity: mounted ? 1 : 0 }}>
                   <div className="db-stat-label">{label}</div>
-                  <div className="db-stat-value">{value}</div>
+                  <div className={`db-stat-value ${multi ? 'db-stat-value-multi' : ''}`}>{value}</div>
                   <div className="db-stat-sub">{sub}</div>
                 </div>
               ))}
@@ -660,7 +732,7 @@ export default function DashboardPage() {
                     })}
                     <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border)' }}>
                       <div style={{ fontSize: '15px', color: 'var(--text-3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Outstanding balance</div>
-                      <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '20px', fontWeight: 700, color: 'var(--accent)', letterSpacing: '-0.5px' }}>{fmt(outstanding)}</div>
+                      <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '16px', fontWeight: 700, color: 'var(--accent)', letterSpacing: '-0.5px' }}>{fmtByCurrency(outstandingByCurrency)}</div>
                     </div>
                   </div>
                 )}
@@ -702,7 +774,10 @@ export default function DashboardPage() {
                         <tr key={inv.id} className="db-tr">
                           <td className="db-td db-td-mono">{inv.invoice_number}</td>
                           <td className="db-td">{inv.full_name}</td>
-                          <td className="db-td db-td-r" style={{ fontWeight: 500 }}>{fmt(inv.total_amount)}</td>
+                          <td className="db-td db-td-r" style={{ fontWeight: 500 }}>
+                            {fmt(inv.total_amount, inv.currency)}
+                            <span className="db-cur-badge">{inv.currency || DEFAULT_CURRENCY}</span>
+                          </td>
                           <td className="db-td">
                             <span className="db-badge" style={{ color: statusColor(inv.status), background: statusBg(inv.status) }}>
                               {inv.status}
@@ -715,35 +790,50 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* Revenue breakdown */}
+              {/* Revenue breakdown — one collected/partial/unpaid group per currency present */}
               <div className="db-card">
                 <div className="db-card-head">
                   <span className="db-card-title">Revenue overview</span>
                 </div>
-                <div style={{ padding: '8px 0' }}>
-                  {[
-                    { label: 'Collected', value: totalRevenue, color: 'var(--badge-green-tx)' },
-                    { label: 'Partial', value: invoices.filter(i => i.status === 'partial').reduce((s, i) => s + Number(i.total_amount), 0), color: 'var(--badge-amber-tx)' },
-                    { label: 'Unpaid', value: invoices.filter(i => i.status === 'unpaid').reduce((s, i) => s + Number(i.total_amount), 0), color: 'var(--badge-red-tx)' },
-                  ].map(({ label, value, color }) => {
-                    const grand = totalRevenue + outstanding || 1;
-                    return (
-                      <div key={label} className="db-expbar">
-                        <div className="db-expbar-cat" style={{ color }}>{label}</div>
-                        <div className="db-expbar-track">
-                          <div className="db-expbar-fill" style={{ width: `${(value / grand) * 100}%`, background: color }} />
+                {loading ? (
+                  <div style={{ padding: '20px' }}>
+                    {[1, 2, 3].map(i => <div key={i} className="db-skel" style={{ marginBottom: '12px' }} />)}
+                  </div>
+                ) : currenciesPresent.length === 0 ? (
+                  <div className="db-empty">No invoices yet</div>
+                ) : (
+                  <div style={{ padding: '8px 0' }}>
+                    {currenciesPresent.map(cur => {
+                      const { collected, partial, unpaid, grand } = statusSumsForCurrency(cur);
+                      return (
+                        <div key={cur}>
+                          {currenciesPresent.length > 1 && (
+                            <div className="db-currency-group-label">{cur}</div>
+                          )}
+                          {[
+                            { label: 'Collected', value: collected, color: 'var(--badge-green-tx)' },
+                            { label: 'Partial', value: partial, color: 'var(--badge-amber-tx)' },
+                            { label: 'Unpaid', value: unpaid, color: 'var(--badge-red-tx)' },
+                          ].map(({ label, value, color }) => (
+                            <div key={`${cur}-${label}`} className="db-expbar">
+                              <div className="db-expbar-cat" style={{ color }}>{label}</div>
+                              <div className="db-expbar-track">
+                                <div className="db-expbar-fill" style={{ width: `${(value / grand) * 100}%`, background: color }} />
+                              </div>
+                              <div className="db-expbar-val">{fmt(value, cur)}</div>
+                            </div>
+                          ))}
                         </div>
-                        <div className="db-expbar-val">{fmt(value)}</div>
+                      );
+                    })}
+                    <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                      <div style={{ fontSize: '10px', color: 'var(--text-3)', letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Total invoiced</div>
+                      <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '15px', fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.4px', textAlign: 'right' }}>
+                        {fmtByCurrency(invoicedByCurrency)}
                       </div>
-                    );
-                  })}
-                  <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontSize: '10px', color: 'var(--text-3)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Total invoiced</div>
-                    <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '16px', fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.4px' }}>
-                      {fmt(totalRevenue + outstanding)}
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
