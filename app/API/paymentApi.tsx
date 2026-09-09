@@ -11,6 +11,7 @@ const getHeaders = (): Record<string, string> => {
 // Types
 
 export interface Payment {
+  currency: string;
   id: number;
   invoice_id: number;
   invoice_number?: string;

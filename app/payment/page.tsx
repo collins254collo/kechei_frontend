@@ -15,6 +15,7 @@ interface Invoice {
   full_name: string;
   total_amount: number;
   final_amount: number;
+  currency: string; // 'KES' | 'USD' | 'EUR'
   status: 'unpaid' | 'partial' | 'paid';
   issued_date: string;
 }
@@ -25,6 +26,7 @@ interface Payment {
   invoice_number?: string;
   client_full_name?: string;
   amount_paid: number;
+  currency: string; // joined in from the invoice server-side
   method: string;
   payment_date: string;
   reference?: string;
@@ -42,7 +44,40 @@ const METHOD_COLORS: Record<string, { bg: string; tx: string }> = {
   other:           { bg: '#f2f2f2', tx: '#606060' },
 };
 
-function fmt(n: number) { return `KES ${Number(n).toLocaleString()}`; }
+//  Currency 
+interface CurrencyMeta { code: string; symbol: string; label: string; }
+const CURRENCIES: CurrencyMeta[] = [
+  { code: 'KES', symbol: 'KES', label: 'Kenyan Shilling' },
+  { code: 'USD', symbol: '$',   label: 'US Dollar' },
+  { code: 'EUR', symbol: '€',   label: 'Euro' },
+];
+const DEFAULT_CURRENCY = 'KES';
+
+function currencyMeta(code: string) {
+  return CURRENCIES.find(c => c.code === code) || CURRENCIES[0];
+}
+
+function fmt(n: number, currency: string = DEFAULT_CURRENCY) {
+  const meta = currencyMeta(currency);
+  return `${meta.symbol} ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+// Sums grouped by currency instead of summed together — adding e.g.
+// USD + KES amounts directly would produce a meaningless number.
+function groupSumByCurrency<T>(list: T[], currencyOf: (item: T) => string, pick: (item: T) => number) {
+  return list.reduce((acc, item) => {
+    const cur = currencyOf(item) || DEFAULT_CURRENCY;
+    acc[cur] = (acc[cur] || 0) + pick(item);
+    return acc;
+  }, {} as Record<string, number>);
+}
+
+function fmtByCurrency(byCurrency: Record<string, number>) {
+  const entries = Object.entries(byCurrency);
+  if (entries.length === 0) return fmt(0);
+  return entries.map(([cur, amt]) => fmt(amt, cur)).join(' · ');
+}
+
 function fmtDate(d: string) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -74,8 +109,8 @@ export default function PaymentsPage() {
       fetchPayments(),
       fetchInvoices(),
     ]).then(([p, i]) => {
-      if (p.status === 'fulfilled') setPayments(p.value);
-      if (i.status === 'fulfilled') setInvoices(i.value);
+      if (p.status === 'fulfilled') setPayments(p.value.map(pay => ({ ...pay, currency: pay.currency || DEFAULT_CURRENCY })));
+      if (i.status === 'fulfilled') setInvoices(i.value.map((inv: Invoice) => ({ ...inv, currency: inv.currency || DEFAULT_CURRENCY })));
     }).finally(() => setLoading(false));
   };
 
@@ -102,24 +137,42 @@ export default function PaymentsPage() {
     return matchMethod && matchSearch;
   });
 
-  const totalCollected  = payments.reduce((s, p) => s + Number(p.amount_paid), 0);
-  const todayTotal      = payments.filter(p => new Date(p.payment_date).toDateString() === new Date().toDateString()).reduce((s, p) => s + Number(p.amount_paid), 0);
-  const monthTotal      = payments.filter(p => {
+  // Stat totals — grouped by currency, same reasoning as the invoices page.
+  const totalCollectedByCurrency = groupSumByCurrency(payments, p => p.currency, p => Number(p.amount_paid));
+  const todayPayments = payments.filter(p => new Date(p.payment_date).toDateString() === new Date().toDateString());
+  const todayTotalByCurrency = groupSumByCurrency(todayPayments, p => p.currency, p => Number(p.amount_paid));
+  const monthPayments = payments.filter(p => {
     const d = new Date(p.payment_date); const now = new Date();
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  }).reduce((s, p) => s + Number(p.amount_paid), 0);
+  });
+  const monthTotalByCurrency = groupSumByCurrency(monthPayments, p => p.currency, p => Number(p.amount_paid));
 
-  // by method breakdown
-  const byMethod = METHODS.map(m => ({
-    method: m,
-    total: payments.filter(p => p.method === m).reduce((s, p) => s + Number(p.amount_paid), 0),
-    count: payments.filter(p => p.method === m).length,
-  })).filter(m => m.count > 0).sort((a, b) => b.total - a.total);
+  const methodsUsedCount = new Set(payments.map(p => p.method)).size;
 
-  const maxMethod = byMethod[0]?.total || 1;
+  // By-method breakdown, split per currency — a "cash" bar in KES and a
+  // "cash" bar in USD aren't comparable amounts, so they're separate rows,
+  // each scaled against the largest total within its own currency.
+  type MethodCurrencyTotal = { method: string; currency: string; total: number; count: number };
+  const byMethod: MethodCurrencyTotal[] = METHODS.flatMap(m => {
+    const methodPayments = payments.filter(p => p.method === m);
+    const currenciesUsed = Array.from(new Set(methodPayments.map(p => p.currency || DEFAULT_CURRENCY)));
+    return currenciesUsed.map(cur => {
+      const inCurrency = methodPayments.filter(p => (p.currency || DEFAULT_CURRENCY) === cur);
+      return {
+        method: m,
+        currency: cur,
+        total: inCurrency.reduce((s, p) => s + Number(p.amount_paid), 0),
+        count: inCurrency.length,
+      };
+    });
+  }).filter(m => m.count > 0).sort((a, b) => b.total - a.total);
+
+  const maxByCurrency: Record<string, number> = {};
+  byMethod.forEach(m => { maxByCurrency[m.currency] = Math.max(maxByCurrency[m.currency] || 0, m.total); });
 
   // selected invoice balance info
   const selectedInvoice = invoices.find(i => i.id === Number(form.invoice_id));
+  const invoiceCurrency = selectedInvoice?.currency || DEFAULT_CURRENCY;
   const alreadyPaid = payments.filter(p => p.invoice_id === Number(form.invoice_id)).reduce((s, p) => s + Number(p.amount_paid), 0);
   const balance = selectedInvoice ? Number(selectedInvoice.final_amount) - alreadyPaid : 0;
 
@@ -222,7 +275,8 @@ export default function PaymentsPage() {
         .db-stat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent); opacity: 0.4; }
         .db-stat:first-child::before { opacity: 1; }
         .db-stat-label { font-size: 13px; color: var(--text-2); letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 10px; }
-        .db-stat-value { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 700; color: var(--text); letter-spacing: -0.8px; line-height: 1; }
+        .db-stat-value { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 700; color: var(--text); letter-spacing: -0.8px; line-height: 1.15; }
+        .db-stat-value.db-stat-value-multi { font-size: 16px; }
         .db-stat-sub { font-size: 14px; color: var(--text-3); margin-top: 6px; }
 
         /* ── Layout ── */
@@ -262,6 +316,8 @@ export default function PaymentsPage() {
         .db-td-r { text-align: right; }
         .db-td-mono { font-size: 15px; color: var(--text-2); }
 
+        .db-cur-badge { display: inline-block; font-size: 10px; letter-spacing: 0.06em; color: var(--text-3); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; margin-left: 6px; vertical-align: middle; }
+
         /* Method badge */
         .db-method-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 5px; font-size: 14px; font-weight: 500; letter-spacing: 0.04em; text-transform: capitalize; }
 
@@ -280,10 +336,10 @@ export default function PaymentsPage() {
         /* ── Breakdown bars ── */
         .db-expbar { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
         .db-expbar:last-child { border-bottom: none; }
-        .db-expbar-cat { width: 96px; font-size: 15px; text-transform: capitalize; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .db-expbar-cat { width: 110px; font-size: 15px; text-transform: capitalize; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .db-expbar-track { flex: 1; height: 5px; background: var(--border); border-radius: 99px; overflow: hidden; }
         .db-expbar-fill { height: 100%; border-radius: 99px; transition: width 0.7s cubic-bezier(0.16,1,0.3,1); }
-        .db-expbar-val { font-size: 15px; color: var(--text-2); width: 88px; text-align: right; flex-shrink: 0; }
+        .db-expbar-val { font-size: 15px; color: var(--text-2); width: 108px; text-align: right; flex-shrink: 0; }
 
         /* ── Recent activity timeline (right panel bottom) ── */
         .db-timeline { padding: 0 20px 8px; }
@@ -374,14 +430,14 @@ export default function PaymentsPage() {
             {/* ── Stat cards ── */}
             <div className="db-stats">
               {[
-                { label: 'Total collected',  value: loading ? '—' : fmt(totalCollected), sub: `${payments.length} payment${payments.length !== 1 ? 's' : ''}` },
-                { label: 'Received today',   value: loading ? '—' : fmt(todayTotal),     sub: new Date().toLocaleDateString('en-KE', { weekday: 'long' }) },
-                { label: 'This month',       value: loading ? '—' : fmt(monthTotal),     sub: new Date().toLocaleString('en-KE', { month: 'long', year: 'numeric' }) },
-                { label: 'Methods used',     value: loading ? '—' : String(byMethod.length), sub: `of ${METHODS.length} available` },
-              ].map(({ label, value, sub }) => (
+                { label: 'Total collected',  value: loading ? '—' : fmtByCurrency(totalCollectedByCurrency), sub: `${payments.length} payment${payments.length !== 1 ? 's' : ''}`, multi: true },
+                { label: 'Received today',   value: loading ? '—' : fmtByCurrency(todayTotalByCurrency),     sub: new Date().toLocaleDateString('en-KE', { weekday: 'long' }), multi: true },
+                { label: 'This month',       value: loading ? '—' : fmtByCurrency(monthTotalByCurrency),     sub: new Date().toLocaleString('en-KE', { month: 'long', year: 'numeric' }), multi: true },
+                { label: 'Methods used',     value: loading ? '—' : String(methodsUsedCount), sub: `of ${METHODS.length} available`, multi: false },
+              ].map(({ label, value, sub, multi }) => (
                 <div key={label} className="db-stat" style={{ opacity: mounted ? 1 : 0 }}>
                   <div className="db-stat-label">{label}</div>
-                  <div className="db-stat-value">{value}</div>
+                  <div className={`db-stat-value ${multi ? 'db-stat-value-multi' : ''}`}>{value}</div>
                   <div className="db-stat-sub">{sub}</div>
                 </div>
               ))}
@@ -468,7 +524,10 @@ export default function PaymentsPage() {
                             <td className="db-td db-td-muted" style={{ fontSize: '11px' }}>
                               {p.reference ? <span style={{ fontFamily: 'DM Mono, monospace', letterSpacing: '0.02em' }}>{p.reference}</span> : <span style={{ color: 'var(--text-3)' }}>—</span>}
                             </td>
-                            <td className="db-td db-td-r" style={{ fontWeight: 600 }}>{fmt(p.amount_paid)}</td>
+                            <td className="db-td db-td-r" style={{ fontWeight: 600 }}>
+                              {fmt(p.amount_paid, p.currency)}
+                              <span className="db-cur-badge">{p.currency || DEFAULT_CURRENCY}</span>
+                            </td>
                             <td className="db-td" style={{ textAlign: 'right', paddingRight: '16px' }}>
                               <button className="db-del-btn" disabled={deleteId === p.id} onClick={() => handleDelete(p.id)} title="Delete">
                                 {deleteId === p.id
@@ -501,21 +560,25 @@ export default function PaymentsPage() {
                     <div className="db-empty">No data yet</div>
                   ) : (
                     <div style={{ padding: '8px 0' }}>
-                      {byMethod.map(({ method, total, count }) => {
+                      {byMethod.map(({ method, currency, total, count }) => {
                         const mc = methodColors(method);
+                        const max = maxByCurrency[currency] || 1;
                         return (
-                          <div key={method} className="db-expbar">
-                            <div className="db-expbar-cat" style={{ color: mc.tx }}>{method}</div>
-                            <div className="db-expbar-track">
-                              <div className="db-expbar-fill" style={{ width: `${(total / maxMethod) * 100}%`, background: mc.tx }} />
+                          <div key={`${method}-${currency}`} className="db-expbar">
+                            <div className="db-expbar-cat" style={{ color: mc.tx }}>
+                              {method}
+                              <span className="db-cur-badge">{currency}</span>
                             </div>
-                            <div className="db-expbar-val">{fmt(total)}</div>
+                            <div className="db-expbar-track">
+                              <div className="db-expbar-fill" style={{ width: `${(total / max) * 100}%`, background: mc.tx }} />
+                            </div>
+                            <div className="db-expbar-val">{fmt(total, currency)}</div>
                           </div>
                         );
                       })}
-                      <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ fontSize: '10px', color: 'var(--text-3)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Total collected</div>
-                        <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '16px', fontWeight: 700, color: 'var(--accent)', letterSpacing: '-0.4px' }}>{fmt(totalCollected)}</div>
+                      <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                        <div style={{ fontSize: '10px', color: 'var(--text-3)', letterSpacing: '0.1em', textTransform: 'uppercase', paddingTop: '2px' }}>Total collected</div>
+                        <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '14px', fontWeight: 700, color: 'var(--accent)', letterSpacing: '-0.2px', textAlign: 'right' }}>{fmtByCurrency(totalCollectedByCurrency)}</div>
                       </div>
                     </div>
                   )}
@@ -546,7 +609,7 @@ export default function PaymentsPage() {
                                 {' · '}{fmtDate(p.payment_date)}
                               </div>
                             </div>
-                            <div className="db-tl-amt">{fmt(p.amount_paid)}</div>
+                            <div className="db-tl-amt">{fmt(p.amount_paid, p.currency)}</div>
                           </div>
                         );
                       })}
@@ -579,19 +642,9 @@ export default function PaymentsPage() {
                   <option value="">Select an invoice…</option>
                  {payableInvoices.map(inv => (
                     <option key={inv.id} value={inv.id}>
-                      {inv.invoice_number} — {inv.full_name} ({fmt(inv.final_amount)})
+                      {inv.invoice_number} — {inv.full_name} ({fmt(inv.final_amount, inv.currency)})
                     </option>
                   ))}
-                  {invoices.filter(i => i.status === 'paid').length > 0 && (
-                    <>
-                      <option disabled> Paid invoices </option>
-                      {invoices.filter(i => i.status === 'paid').map(inv => (
-                        <option key={inv.id} value={inv.id}>
-                          {inv.invoice_number} — {inv.full_name} (paid)
-                        </option>
-                      ))}
-                    </>
-                  )}
                   {invoices.filter(i => i.status === 'paid').length > 0 && (
                     <>
                       <option disabled> Paid invoices </option>
@@ -611,23 +664,23 @@ export default function PaymentsPage() {
                   <div>
                     <div style={{ marginBottom: '2px' }}>Balance remaining</div>
                     <div style={{ fontSize: '10px', color: 'var(--text-3)' }}>
-                      {fmt(selectedInvoice.final_amount)} total · {fmt(alreadyPaid)} paid
+                      {fmt(selectedInvoice.final_amount, invoiceCurrency)} total · {fmt(alreadyPaid, invoiceCurrency)} paid
                     </div>
                   </div>
-                  <div className="db-balance-val">{fmt(Math.max(0, balance))}</div>
+                  <div className="db-balance-val">{fmt(Math.max(0, balance), invoiceCurrency)}</div>
                 </div>
               )}
 
               {/* Amount + date */}
               <div className="db-field-row">
                 <div className="db-field">
-                  <label className="db-label">Amount (KES) *</label>
+                  <label className="db-label">Amount ({invoiceCurrency}) *</label>
                   <input className="db-input" type="number" min="0" step="0.01" placeholder="0.00"
                     value={form.amount_paid} onChange={e => setForm(f => ({ ...f, amount_paid: e.target.value }))} />
                   {selectedInvoice && balance > 0 && (
                     <button onClick={() => setForm(f => ({ ...f, amount_paid: String(balance) }))}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: 'var(--accent)', textAlign: 'left', padding: '2px 0' }}>
-                      ↑ Fill balance ({fmt(balance)})
+                      ↑ Fill balance ({fmt(balance, invoiceCurrency)})
                     </button>
                   )}
                 </div>
