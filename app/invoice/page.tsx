@@ -146,7 +146,8 @@ export default function InvoicesPage() {
       fetchClients(),
     ]).then(([inv, cl]) => {
       if (inv.status === 'fulfilled') {
-        setInvoices(inv.value.map(invoice => ({ ...invoice, currency: DEFAULT_CURRENCY })));
+       
+        setInvoices(inv.value.map(invoice => ({ ...invoice, currency: invoice.currency || DEFAULT_CURRENCY })));
       }
       else { console.error('invoices failed:', inv.reason); pushToast('Failed to load invoices', 'error'); }
       if (cl.status === 'fulfilled')  setClients(cl.value);
